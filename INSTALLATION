@@ -1,0 +1,91 @@
+Quick Guide of Installing and Running LAMMPS/RAPTOR for MS-RMD Simulations
+==========================================================================
+
+Contents of This Folder
+-----------------------
+
+* USER-RAPTOR          - The LAMMPS package folder with source codes of RAPTOR 
+* tests                - Testing examples
+* MANUAL.pdf           - Raptor User Manual
+* INSTALLATION         - This file
+* plumed               - PLUMED patches
+
+Installation
+------------
+
+1. RAPTOR is a plugin package to LAMMPS for running MS-RMD simulations. To run
+   LAMMPS/RAPTOR, the first step is to download, configure and install LAMMPS
+   distribute from its official website.
+
+   * LAMMPS website:  https://lammps.sandia.gov/
+   * Download link:   https://lammps.sandia.gov/download.html
+   * Official manual: https://lammps.sandia.gov/doc/Manual.html
+
+   A recommended version can be download directly via:
+
+   * https://lammps.sandia.gov/tars/lammps-3Nov2022.tar.gz
+
+   A quick installation guide can be found at:
+
+   * https://lammps.sandia.gov/doc/Build_make.html
+
+   User needs to configure the Makefile by providing customized system library
+   dependencies. Following dependencies are required for building LAMMPS with
+   the RAPTOR package:
+
+   * MPI (IntelMPI or OpenMPI)
+   * FFT (Intel/MKL or FFTW3)
+
+   To use RAPTOR, following two LAMMPS packages need to be enabled:
+
+   * MOLECULE
+   * KSPACE
+
+2. When the LAMMPS instance is installed with PLUMED patch, an additional `make yes-PLUMED` is required. _After_ the LAMMPS with patched with PLUMED, two files, `fix_plumed.cpp` and `fix_plumed.h` need to be replaced with the files in `plumed` folder to ensure correct interface between RAPTOR and PLUMED, namely:
+- The CEC can be accessed through additional virtual atoms in PLUMED
+- The bias force can be correctly treated by RAPTOR
+
+3. Here's an example of commands that can be used to build LAMMPS with RAPTOR:
+
+   ```
+   cd [LAMMPS]/src
+   cp -rp [INSTALL]/USER-RAPTOR .
+   make yes-MOLECULE
+   make yes-KSPACE
+   make yes-USER-RAPTOR
+   make mpi
+   ```
+
+   Explanation:
+
+   * [LAMMPS] is the folder from unpacking the downloaded LAMMPS tar file
+   * [INSTALL] is this folder that from unpacking VOTH-RAPTOR.tar.gz tar file
+   * If everything runs successfully, an executable binary filewill be 
+     generated as [LAMMPS]/src/lmp_mpi
+   * Note, there was an example Makefile in previous release, but it is not
+     provided anymore because of the compatibility issue after `C++17` being
+     used in LAMMPS. Default Makefile.mpi provided by LAMMPS is directly
+     usable for RAPTOR.
+ 
+Tests and Usage
+---------------
+
+There are two examples provided in the `tests` folder in this package:
+
+   * single - Water box with one pair of H+ and CL-
+   * multi  - Water box with 16 pairs of H+ and CL- (using MS-RMD-SCI method)
+
+Both of them are using the newest RMD/3.2 parameters for excess protons in
+water. To run any of these test, run following command in the folder:
+
+   ```
+   mpirun -np [N] [LAMMPS]/src/lmp_mpi -in in.lmp
+   ```
+
+   * [N] is the number of processes (cores) to run the simulation
+   * [LAMMPS] is the folder of LAMMPS distribute
+
+Contact
+-------
+
+For any questions, please contact Yuxing at yuxing@uchicago.edu

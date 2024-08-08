@@ -1,0 +1,28 @@
+.
+├── AUTHORS
+├── LICENSE
+├── README.md
+├── example
+│   ├── multi
+│   │   └── Analysis.ipynb
+│   └── single
+│       └── Analysis.ipynb
+├── raptoranalysis
+│   ├── __init__.py
+│   ├── analysis
+│   │   ├── __init__.py
+│   │   ├── cecmsd.py
+│   │   ├── correlation.py
+│   │   ├── evbampdist.py
+│   │   ├── protonhopping.py
+│   │   └── rdf.py
+│   ├── parser
+│   │   ├── __init__.py
+│   │   ├── lammpsframe.py
+│   │   ├── lammpsreader.py
+│   │   ├── raptorframe.py
+│   │   └── raptorreader.py
+│   └── requirements.txt
+└── tree.log
+
+7 directories, 19 files

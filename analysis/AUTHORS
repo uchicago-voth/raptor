@@ -1,0 +1,18 @@
+
+=======================================================================
+Authors of raptoranalysis
+=======================================================================
+
+
+- Sijia Chen (@Alexandrina-Chen)
+
+
+External contributors
+---------------------
+External code (under a GPL-compatible licence) was obtained from
+various sources. The authors (as far as we know them) are listed here.
+
+correlation.py
+- Authors: Paul Smith & Mateusz Bieniek
+- Year: 2020
+- Copyright: GNU Public License v2
