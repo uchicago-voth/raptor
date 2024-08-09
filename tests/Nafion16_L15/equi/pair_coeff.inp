@@ -1,0 +1,13 @@
+pair_coeff   1   1  0.0844       3.46007244151  # C_3T
+pair_coeff   2   2  0.0951       3.4730795628   # C_3
+pair_coeff   3   3  0.0957       3.03315377578  # O_3
+pair_coeff   4   4  0.0957       3.03315377578  # O_2
+pair_coeff   5   5  0.0496       3.02495750757  # F_
+pair_coeff   6   6  0.0496       3.02495750757  # F_3
+pair_coeff   7   7  0.344        3.59032183411  # S_3
+pair_coeff   8   8  0            0              # HSP
+pair_coeff   9   9  0.155425     3.16548787137  # OP
+pair_coeff  10  10  0.000040583  0              # HTH
+pair_coeff  11  11  0.098609686  3.11850721837  # OTH
+pair_coeff   3  10  0.02739      1.6667         # O3  HTH, Nafion
+pair_coeff   8  11  3.0          1.6            # HSP OTH, MS-EVB 3.2

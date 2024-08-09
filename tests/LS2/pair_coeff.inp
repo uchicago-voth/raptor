@@ -1,0 +1,4 @@
+pair_coeff   1  2 0.0839  3.32394311738 # SOD CLA, NBFIX
+pair_coeff   1 29 0.07502 2.78851298778 # SOD OBL, NBFIX
+pair_coeff   1 31 0.07502 2.81523994932 # SOD O2L, NBFIX
+pair_coeff  34 37 3       1.6           # HSP OTH, MS-EVB 3.2

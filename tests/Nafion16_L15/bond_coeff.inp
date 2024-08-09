@@ -1,0 +1,64 @@
+bond_coeff       1      harmonic        350.0          1.53                # C_3  C_3
+bond_coeff       2      harmonic        350.0          1.53                # C_3  C_3T
+bond_coeff       3      harmonic        302.6298       1.336               # C_3  F_
+bond_coeff       4      harmonic        350.0          1.42                # C_3  O_3
+bond_coeff       5      harmonic        350.0          1.8                 # C_3  S_3
+bond_coeff       6      harmonic        214.6602       1.4982              # C_3T C_3T
+bond_coeff       7      harmonic        302.6298       1.336               # C_3T F_
+bond_coeff       8      harmonic        302.6298       1.336               # C_3T F_3
+bond_coeff       9      harmonic        529.581        1.012               # HSP  OP
+bond_coeff      10      morse            79.086356     2.083387      0.98  # HTH  OTH
+bond_coeff      11      harmonic        350.0          1.48                # O_2  S_3
+
+angle_coeff      1      53.137      122.5536  # C_3  C_3  C_3T
+angle_coeff      2      50.1683     118.3191  # C_3  C_3  F_
+angle_coeff      3      50          109.471   # C_3  C_3  O_3
+angle_coeff      4      50          109.471   # C_3  C_3  S_3
+angle_coeff      5      53.137      122.5536  # C_3  C_3T C_3T
+angle_coeff      6      50.1683     118.3191  # C_3  C_3T F_
+angle_coeff      7      50.1683     118.3191  # C_3  C_3T F_3
+angle_coeff      8      50          109.471   # C_3  O_3  C_3
+angle_coeff      9     175          109.471   # C_3  S_3  O_2
+angle_coeff     10      53.137      122.5536  # C_3T C_3  C_3T
+angle_coeff     11      50.1683     118.3191  # C_3T C_3  F_
+angle_coeff     12      50          109.471   # C_3T C_3  O_3
+angle_coeff     13      53.137      122.5536  # C_3T C_3T C_3T
+angle_coeff     14      50.1683     118.3191  # C_3T C_3T F_
+angle_coeff     15      50.1683     118.3191  # C_3T C_3T F_3
+angle_coeff     16      54.1198     121.502   # F_   C_3  F_
+angle_coeff     17      50          109.471   # F_   C_3  O_3
+angle_coeff     18      50          109.471   # F_   C_3  S_3
+angle_coeff     19      54.1198     121.502   # F_   C_3T F_
+angle_coeff     20      54.1198     121.502   # F_3  C_3T F_3
+angle_coeff     21      37.95       113.24    # HSP  OP   HSP
+angle_coeff     22      38.7434     111.727   # HTH  OTH  HTH
+angle_coeff     23     175          115.5     # O_2  S_3  O_2
+
+dihedral_coeff   1       0.1111       3         0       0  # C_3  C_3  C_3T F_3
+dihedral_coeff   2       0.3333       3         0       0  # C_3  C_3  O_3  C_3
+dihedral_coeff   3       0.1111       3         0       0  # C_3  C_3  S_3  O_2
+dihedral_coeff   4       0.1111       3         0       0  # C_3  C_3T C_3T C_3T
+dihedral_coeff   5       0.1111       3         0       0  # C_3  C_3T C_3T F_
+dihedral_coeff   6       0.3333       3         0       0  # C_3  O_3  C_3  C_3T
+dihedral_coeff   7       0.3333       3         0       0  # C_3  O_3  C_3  F_
+dihedral_coeff   8       0.1111       3         0       0  # C_3T C_3  C_3  F_
+dihedral_coeff   9       0.1111       3         0       0  # C_3T C_3  C_3  O_3
+dihedral_coeff  10       0.1111       3         0       0  # C_3T C_3  C_3T C_3T
+dihedral_coeff  11       0.1111       3         0       0  # C_3T C_3  C_3T F_
+dihedral_coeff  12       0.1111       3         0       0  # C_3T C_3T C_3  F_
+dihedral_coeff  13       0.1111       3         0       0  # C_3T C_3T C_3  O_3
+dihedral_coeff  14       0.3575       3       180       0  # C_3T C_3T C_3T C_3T
+dihedral_coeff  15       0.458        3       180       0  # C_3T C_3T C_3T F_
+dihedral_coeff  16       0.458        3       180       0  # C_3T C_3T C_3T F_3
+dihedral_coeff  17       0.1111       3         0       0  # F_   C_3  C_3  F_
+dihedral_coeff  18       0.1111       3         0       0  # F_   C_3  C_3  O_3
+dihedral_coeff  19       0.1111       3         0       0  # F_   C_3  C_3  S_3
+dihedral_coeff  20       0.1111       3         0       0  # F_   C_3  C_3T F_
+dihedral_coeff  21       0.1111       3         0       0  # F_   C_3  C_3T F_3
+dihedral_coeff  22       0.1111       3         0       0  # F_   C_3  S_3  O_2
+dihedral_coeff  23       0.1111       3         0       0  # F_   C_3T C_3  O_3
+dihedral_coeff  24       0.4492       3         0       0  # F_   C_3T C_3T F_
+dihedral_coeff  25       0.4492       3         0       0  # F_   C_3T C_3T F_3
+dihedral_coeff  26       0.1111       3         0       0  # F_3  C_3T C_3  O_3
+dihedral_coeff  27       0.1111       3         0       0  # O_3  C_3  C_3  O_3
+dihedral_coeff  28       0.1111       3         0       0  # O_3  C_3  C_3  S_3

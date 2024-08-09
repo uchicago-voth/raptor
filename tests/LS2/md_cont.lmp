@@ -1,0 +1,119 @@
+# MS-EVB simulation
+# Continue simulation
+# Zhi (Shane) Yue, February-2024
+
+####################
+# Assign variables #
+####################
+
+variable name    string NAME        # system name
+variable stage   string STAGE       # current stage
+variable temp    string MDTEMP      # temperature, K  for real unit
+variable lstep   string LSTEP       # step length, fs for real unit
+variable mdstep  string MDSTEP      # MD steps
+variable vchm    string VCHM        # version of CHARMM force field (22 or 36)
+variable ene_frq string ENEFRQ      # frequency of printing thermodynamic info (T, E, p...)
+variable trj_frq string TRJFRQ      # frequency of writing  trajectory
+variable rst_frq string RSTFRQ      # frequency of writing  restart file
+
+variable tdamp equal ${lstep}*100.0 # how rapidly (in time units) the temperature is relaxed
+
+##################
+# Basic settings #
+##################
+
+units     real  # unit style (real: Angstrom, femtosecond, kcal/mol, Kelvin, atmosphere ...)
+dimension 3     # 3D simulation
+boundary  p p p # periodic in x/y/z
+
+###################
+# Bonded settings #
+###################
+
+atom_style     full                  # atom style; molecular+charge for bio-molecules
+bond_style     hybrid harmonic morse # harmonic+morse potentials for bond
+angle_style    charmm                # charmm         potential  for angle (including Urey-Bradley term)
+dihedral_style charmm                # charmm         potential  for dihedral
+improper_style harmonic              # harmonic       potential  for improper
+
+######################
+# Nonbonded settings #
+######################
+
+pair_style   lj/charmm/coul/long 10.0 12.0 12.0 # LJ with potential switch + long-range Coulombics
+pair_modify  mix arithmetic                     # Eps_ij = sqrt(Eps_i * Eps_j), Rmin_ij = (Rmin_i + Rmin_j) / 2
+kspace_style pppm 1e-5                          # particle-particle particle-mesh solver
+neighbor     2.0 bin                            # cutnb = ctofnb + 2.0 (for units = real)
+neigh_modify delay 5 every 1 check yes          # update pairwise neighbor list heuristically
+
+#####################
+# Read restart file #
+#####################
+
+read_restart  md_prev.restart # read restart file
+special_bonds charmm          # invoke 1-2,1-3,1-4 exclusion for CHARMM FF
+
+##################################
+# CMAP (read after restart file) #
+##################################
+
+fix        cmap all cmap charmm${vchm}.cmap # enable CHARMM CMAP
+fix_modify cmap energy yes                  # add CMAP energy to the total potential energy
+
+#################################################################
+# User-defined bonded FF coefficients (read after restart file) #
+#################################################################
+
+include bond_coeff.inp # for MS-EVB 3.2 use ONLY
+
+#################################################################################
+# User-defined nonbonded FF coefficients (e.g., NBFIX; read after restart file) #
+#################################################################################
+
+include pair_coeff.inp # for MS-EVB 3.2 use ONLY
+
+##################
+# Specify groups #
+##################
+
+group    WAT  type 35 34             # water     (OP,  HSP)
+group    H3O  type 37 36             # hydronium (OTH, HTH)
+group    ION  type 1 2               # ion       (SOD, CLA)
+group    SOLV union WAT ION H3O      # solvent
+group    SOLU id 1:1420              # solute
+group    PROA id 1:355               # solute, chain A
+group    PROB id 356:710             # solute, chain B
+group    PROC id 711:1065            # solute, chain C
+group    PROD id 1066:1420           # solute, chain D
+group    MEMB subtract all SOLU SOLV # membrane
+
+variable hydr atom "mass == 1.008"   # assgin hydrogen mass to a variable
+group    HATM variable hydr          # hydrogen atoms
+group    HEAV subtract SOLU HATM     # solute heavy atoms
+
+###############
+# MD settings #
+###############
+
+timestep       ${lstep}                                             # step length
+
+thermo_style   multi                                                # style of printing thermodynamic info.
+thermo_modify  flush yes                                            # invokes a flush operation after thermodynamic info. is written to the log file
+thermo         ${ene_frq}                                           # compute & print thermodynamic info.
+
+fix            nvt all nvt temp ${temp} ${temp} ${tdamp}            # run under NVT ensemble
+fix            evb all evb evb.cfg evb.out evb.top                  # call MS-EVB
+
+dump           trj all custom ${trj_frq} md_${stage}.lammpstrj &
+                       id type mol x y z q                          # style for writing trajectory
+dump_modify    trj sort id                                          # modify dump settings
+
+restart        ${rst_frq} md_${stage}.restart1 md_${stage}.restart2 # style for writing restart file
+
+run            ${mdstep}                                            # run MD for specified steps
+
+write_restart  md_${stage}.restart                                  # write (final) restart file
+write_data     md_${stage}.data pair ij                             # write (final) data file with i-j pair coefficient info.
+
+unfix          nvt                                                  # delete fixes applied during MD
+unfix          evb                                                  # MUST unfix EVB after 'write_restart'

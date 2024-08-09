@@ -1,0 +1,145 @@
+1. Convert equilibrated CHARMM structure to LAMMPS format
+   --------------------------------------------------------------------------------
+   cd chm2lmp
+
+   perl charmm2lammps.pl all36_msevb ls2 48.413 48.413 77.868 -cmap > chm2lmp.log
+
+   cd ..
+   --------------------------------------------------------------------------------
+   Inputs:  charmm2lammps.pl
+            top_all36_msevb.rtf
+            par_all36_msevb.par
+            ls2.psf
+            ls2.crd (ls2.pdb will be used if without ls2.crd)
+
+   Outputs: ls2_ctrl.psf
+            ls2_ctrl.pdb
+            ls2.data
+            ls2.in
+
+2. Update LAMMPS *.data
+   --------------------------------------------------------------------------------
+   cp chm2lmp/ls2.data .
+
+   Update following sections in ls2.data:
+     1) Bond Coeffs section (especially reactive O-H bonds)
+   --------------------------------------------------------------------------------
+
+3. Prepare evb.top
+   --------------------------------------------------------------------------------
+   1st column: atom number
+
+
+   2nd column: index of a reactive molecule/residue defined in evb.cfg
+
+               1 --> hydronium,	H3O
+               2 --> water,	H2O
+
+
+   3rd column: index of atoms in a reactive molecule/residue defined in evb_single.par
+
+
+   E.g., for hydronium here,
+         1) in ls2.data, the "Atoms" section
+               19110    3022    37     -0.32          0.50708          0.11013          8.96698  # OTH
+               19111    3022    36      0.44          0.01619         -0.72586          8.86028  # HTH
+               19112    3022    36      0.44          0.09617           0.8353          8.46567  # HTH
+               19113    3022    36      0.44          0.52963          0.31943          9.90094  # HTH
+
+         2) in evb.cfg
+            settype H3O 1 : hydronium
+
+         3) in evb_single.par
+            [molecule_type.start.H3O]
+
+            :      HO        2
+            :      |         |
+            :      OH        1
+            :     / \       / \
+            :   HO   HO    3   4
+
+            : number of atoms,   bonds,   angles,  dihedrals,   impropers,   starting rc
+                          4        3        3         0           0          1
+            : atomic information
+            : atom type   charge   kernel
+              OH          -0.32     1
+              HO           0.44     1
+              HO           0.44     1
+              HO           0.44     1
+
+         4) in evb.top
+            19110 1 1
+            19111 1 2
+            19112 1 3
+            19113 1 4
+   --------------------------------------------------------------------------------
+
+4. Prepare evb.type
+   --------------------------------------------------------------------------------
+   Atom/Bond/Angle/Dihedral/Improper   "names"     should match those defined in evb_single.par
+   Atom/Bond/Angle/Dihedral/Improper   "indeces"   should match those defined in ls2.data
+
+   E.g., for hydronium here,
+         1) in evb.type
+            : Atom Type
+            #define HO 36
+            #define OH 37
+
+            : Bond Type
+            #define OH-HO 39
+
+            : Angle Type
+            #define HO-OH-HO 73
+
+         2) in evb_single.par
+            [molecule_type.start.H3O]
+
+            :      HO        2
+            :      |         |
+            :      OH        1
+            :     / \       / \
+            :   HO   HO    3   4
+
+            : number of atoms,   bonds,   angles,  dihedrals,   impropers,   starting rc
+                          4        3        3         0           0          1
+            : atomic information
+            : atom type   charge   kernel
+              OH          -0.32     1
+              HO           0.44     1
+              HO           0.44     1
+              HO           0.44     1
+            : bonds
+            :  atom 1       atom 2      type
+               1            2           OH-HO
+               1            3           OH-HO
+               1            4           OH-HO
+            : angles
+            :  atom 1       atom 2       atom 3     type
+               2            1            3          HO-OH-HO
+               2            1            4          HO-OH-HO
+               3            1            4          HO-OH-HO
+
+            : COC
+            4
+            1 2 3 4
+
+            [molecule_type.end]
+
+         3) in ls2.data
+            Masses
+                  36      1.008  # HTH
+                  37    15.9994  # OTH
+
+            Bond Coeffs # hybrid
+                  39      morse           79.086356      2.083387      0.98  # HTH  OTH
+
+            Angle Coeffs # charmm
+                  73         38.74335         111.7269                0                0  # HTH  OTH  HTH
+   --------------------------------------------------------------------------------
+
+5. Run MS-RMD simulations
+   --------------------------------------------------------------------------------
+   sbatch msrmd.qsub
+
+   Update "set stage = 1    # current stage" line to continue the simulation
+   --------------------------------------------------------------------------------

@@ -1,0 +1,37 @@
+:::::::::::
+:: Water ::
+:::::::::::
+
+: H3O
+:
+:      HO        2
+:      |         |
+:      OH        1
+:     / \       / \
+:   HO   HO    3   4
+:
+: Note: CHARMM c36 defines atom types HTH & OTH
+:
+: H2O
+:
+: HW---OW---HW      2---1---3
+:
+: Note: CHARMM c36 defines atom types HSP & OP
+:
+
+: Atom Type
+: Check the "Masses" section of *.data
+#define OW  9
+#define HW  8
+#define OH 11
+#define HO 10
+
+: Bond Type
+: Check the "Bond Coeffs" section of *.data or bond_coeff.inp
+#define OW-HW  9
+#define OH-HO 10
+
+: Angle Type
+: Check the "Angle Coeffs" section of *.data or bond_coeff.inp
+#define HW-OW-HW 21
+#define HO-OH-HO 22

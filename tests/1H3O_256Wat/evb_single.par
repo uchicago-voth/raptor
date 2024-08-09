@@ -1,0 +1,408 @@
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+::                                                                          ::
+::  FILE: PARAMETER FILE FOR LAMMPS_EVB                                     ::
+::                                                                          ::
+::  DATE: Feb-06-2024                                                       ::
+::  AUTH: Zhi Yue                                                           ::
+::  COMM: (1) WATER EVB3.2                                                  ::
+::        (2) Single proton                                                 ::
+::                                                                          ::
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:::SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS:::
+:::S                                                                      S:::
+:::S   SEGMENT:   MOLECULE TYPE (EVB KERNEL TYPE)                         S:::
+:::S                                                                      S:::
+:::SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS:::
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+[segment.molecule_type]
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+: ----------------------------------------------------------------------------
+: ----------------------------------------------------------------------------
+
+#ifdef WAT
+
+[molecule_type.start.H3O]
+
+:      HO        2
+:      |         |
+:      OH        1
+:     / \       / \
+:   HO   HO    3   4
+
+: number of atoms,   bonds,   angles,  dihedrals,   impropers,   starting rc
+              4        3        3         0           0          1
+: atomic information
+: atom type   charge   kernel
+  #ifdef EVB32
+
+  OH          -0.32     1
+  HO           0.44     1
+  HO           0.44     1
+  HO           0.44     1
+
+  #endif
+
+: bonds
+:  atom 1       atom 2      type
+   1            2           OH-HO
+   1            3           OH-HO
+   1            4           OH-HO
+: angles
+:  atom 1       atom 2       atom 3     type
+   2            1            3          HO-OH-HO
+   2            1            4          HO-OH-HO
+   3            1            4          HO-OH-HO
+
+: COC
+4
+1 2 3 4
+
+[molecule_type.end]
+
+: ----------------------------------------------------------------------------
+
+[molecule_type.start.H2O]
+
+: HW---OW---HW      2---1---3
+
+: number of atoms,   bonds,   angles,  dihedrals,   impropers,   starting rc
+              3        2        1         0           0          0
+: atomic information
+: atom type   charge   kernel
+  #ifdef EVB32
+
+  OW          -0.82     1
+  HW           0.41     1
+  HW           0.41     1
+
+  #endif
+
+: bonds
+:  atom 1       atom 2      type
+   1            2           OW-HW
+   1            3           OW-HW
+: angles
+:  atom 1       atom 2       atom 3     type
+   2            1            3          HW-OW-HW
+
+[molecule_type.end]
+
+#endif
+
+: ----------------------------------------------------------------------------
+: ----------------------------------------------------------------------------
+
+[segment.end]
+
+
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:::SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS:::
+:::S                                                                      S:::
+:::S   SEGMENT:   REACTION (REACTIONS TYPE AND PATHS)                     S:::
+:::S                                                                      S:::
+:::SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS:::
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+[segment.reaction]
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+: ----------------------------------------------------------------------------
+: ----------------------------------------------------------------------------
+
+#ifdef WAT_WAT
+
+: ----------------------------------------------------------------------------
+
+[reaction.start.H3O_H2O]
+
+: For reaction pair 1 :  hydrolium + water -> water + hydrolium
+0            : is the atom moving from molecule B to molecule A,  0-forward,  1-backward
+H3O   H2O    : change of molecule A (Hydrolium->Water)
+H2O   H3O    : change of molecule B (Water->Hydrolium)
+3            : number of possible pathways
+
+: ----------------------------------------------------------------------------
+
+: Pathway 1
+: A description of reaction contains three parts:
+1    3    3   : number of moving part, first part, second part
+: moving part:
+2    2           : the index 2 atom of type 1 will turn into index 2 atom of type 2 (HO from Hydrolium to Water)
+: rest part: ( first type in the pair )
+1    1     : index 1 atom in reactant will become index 1 atom in product (OH->OW)
+3    2     : index 3 atom in reactant will become index 2 atom in product (HO->HW)
+4    3     : index 4 atom in reactant will become index 3 atom in product (OH->OW)
+: newing part: ( second type in the pair )
+1    1     : index 1 atom in reactant will become index 1 atom in product (OW->OH)
+2    3     : index 2 atom in reactant will become index 3 atom in product (HW->HO)
+3    4     : index 3 atom in reactant will become index 4 atom in product (HW->HO)
+
+: ----------------------------------------------------------------------------
+
+: Pathway 2
+: A description of reaction contains three parts:
+1    3    3   : number of moving part, first part, second part
+: moving part:
+3    2           : the index 3 atom of type 1 will turn into index 2 atom of type 2 (HO from Hydrolium to Water)
+: rest part: ( first type in the pair )
+1    1     : index 1 atom in reactant will become index 1 atom in product (OH->OW)
+2    2     : index 2 atom in reactant will become index 2 atom in product (HO->HW)
+4    3     : index 4 atom in reactant will become index 3 atom in product (OH->OW)
+: newing part: ( second type in the pair )
+1    1     : index 1 atom in reactant will become index 1 atom in product (OW->OH)
+2    3     : index 2 atom in reactant will become index 3 atom in product (HW->HO)
+3    4     : index 3 atom in reactant will become index 4 atom in product (HW->HO)
+
+: ----------------------------------------------------------------------------
+
+: Pathway 3
+: A description of reaction contains three parts:
+1    3    3   : number of moving part, first part, second part
+: moving part:
+4    2           : the index 4 atom of type 1 will turn into index 2 atom of type 2 (HO from Hydrolium to Water)
+: rest part: ( first type in the pair )
+1    1     : index 1 atom in reactant will become index 1 atom in product (OH->OW)
+2    2     : index 2 atom in reactant will become index 2 atom in product (HO->HW)
+3    3     : index 4 atom in reactant will become index 3 atom in product (OH->OW)
+: newing part: ( second type in the pair )
+1    1     : index 1 atom in reactant will become index 1 atom in product (OW->OH)
+2    3     : index 2 atom in reactant will become index 3 atom in product (HW->HO)
+3    4     : index 3 atom in reactant will become index 4 atom in product (HW->HO)
+
+[reaction.end]
+
+: ----------------------------------------------------------------------------
+
+#endif
+
+: ----------------------------------------------------------------------------
+: ----------------------------------------------------------------------------
+
+[segment.end]
+
+
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:::SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS:::
+:::S                                                                      S:::
+:::S   SEGMENT:   STATE SEARCH ALGORITHMN                                 S:::
+:::S                                                                      S:::
+:::SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS:::
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+[segment.state_search]
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+
+: is refining states
+#ifdef EVB32
+  0
+#endif
+
+: ----------------------------------------------------------------------------
+: ----------------------------------------------------------------------------
+
+#ifdef WAT
+
+[state_search.start.H3O]
+
+  #ifdef WAT_WAT
+  : host;  target;  client;   shell limit;   distance limit;    reaction pair;  reaction path
+  : H->OW
+    2      H2O         1            3                2.5        H3O_H2O           1
+    3      H2O         1            3                2.5        H3O_H2O           2
+    4      H2O         1            3                2.5        H3O_H2O           3
+  #endif
+
+: ----------------------------------------------------------------------------
+
+[state_search.end]
+
+: ----------------------------------------------------------------------------
+
+[state_search.start.H2O]
+
+  #ifdef WAT_WAT
+  : host;  target;  client;   shell limit;   distance limit;    reaction pair;  reaction path
+  : H->OW
+    2      H2O         1            3                2.5        H3O_H2O           2
+    3      H2O         1            3                2.5        H3O_H2O           3
+  #endif
+
+: ----------------------------------------------------------------------------
+
+[state_search.end]
+
+#endif
+
+: ----------------------------------------------------------------------------
+: ----------------------------------------------------------------------------
+
+[segment.end]
+
+
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:::SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS:::
+:::S                                                                      S:::
+:::S   SEGMENT:   OFF_DIAGONAL COUPLINGS                                  S:::
+:::S                                                                      S:::
+:::SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS:::
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+[segment.off_diagonal]
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+: ----------------------------------------------------------------------------
+: ----------------------------------------------------------------------------
+
+::::::::::::::::::::::::::::::::::::::
+: for pt of H3O->H2O
+::::::::::::::::::::::::::::::::::::::
+
+#ifdef WAT_WAT
+
+[off_diagonal.start.H3O_H2O]
+
+PT  : Use the PT coupling
+
+ : Geometry part
+
+  : atom index
+  1  1              : evb_index of DONOR    atom (should be in molecule A)
+  2  1              : evb_index of ACCEPT   atom (should be in molecule B)
+  2  2              : evb_index of HYDROGEN atom (should be in molecule B)
+
+  : A_Rq Type : A(R,q) = f(R) * g(q)
+  1 : 1-symmetric; 2-asymmetric
+
+: ----------------------------------------------------------------------------
+
+  #ifdef EVB32
+
+  : parameters
+  1.7831700000  : gamma
+  0.1559053906  : P
+  5.0664471138  : k
+  2.8621690050  : D_oo
+  5.2394128815  : beta
+  2.9425969088  : R0_oo
+  7.6147671992  : P'
+  7.4062624364  : alpha
+  1.8000000000  : r0_oo
+
+  : Potential part
+   -21.064268  : Vij_const, in kcal/mol
+     1         : if contains Vij_ex part (0=None; 1=K-Space; 2=Debye; 3=Wolf; 4=CGIS; E=Electrode)
+
+  : exchanged charge
+   H2O  H3O : Types of molecule_A (Water) and molecule_B (Hydrolium)
+
+   -0.0895456
+    0.0252683
+    0.0252683
+   -0.0895456
+    0.0780180
+    0.0252683
+    0.0252683
+
+  #endif
+
+: ----------------------------------------------------------------------------
+
+[off_diagonal.end]
+
+#endif
+
+: ----------------------------------------------------------------------------
+: ----------------------------------------------------------------------------
+
+[segment.end]
+
+
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:::SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS:::
+:::S                                                                      S:::
+:::S   SEGMENT:   REPULSIVE TERMS                                         S:::
+:::S                                                                      S:::
+:::SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS:::
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+[segment.repulsive]
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+#ifdef WAT
+
+[repulsive.start.H3O]
+
+Hydronium : H3O
+
+:::::::::::::::::::::::::::::::::::::::::::
+
+: The parameters
+
+H3O  : EVB_Type of H3O
+OW   : Atom_Type of OW
+
+: ----------------------------------------------------------------------------
+
+  #ifdef EVB32
+
+  9.9178410000  : B
+  1.1021518134  : b
+  2.0066249392  : b'
+  2.4000000000  : d_OO
+  5.0917317226  : C
+  8.9920022993  : c
+  1.0000000000  : d_OH
+  2.5874700000  : cutoff for OO_l
+  2.9794400000  : cutoff for OO_u
+  1.5919250000  : cutoff for OH_l
+  2.5941770000  : cutoff for OH_u
+
+  #endif
+
+: ----------------------------------------------------------------------------
+
+[repulsive.end]
+
+#endif
+
+: ----------------------------------------------------------------------------
+: ----------------------------------------------------------------------------
+
+[segment.end]
+
+
+:[segment.extension]
+:
+:[cec_v2.start]
+:   COORDINATORS OW 2.0 OH 2.0
+:   HYDROGENS HW HO
+:[cec_v2.end]
+:
+:[segment.end]
+
+
+[segment.extension]
+
+#ifdef SCREEN_HAMILTONIAN
+
+[screen_hamiltonian.start]
+MINP  1E-6
+MINP2 1E-9
+[screen_hamiltonian.end]
+
+#endif
+
+[segment.end]
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::

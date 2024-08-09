@@ -1,0 +1,657 @@
+* CHARMM Residue Topology File for Nafion
+* Modified DREIDING Force Field with SPC/Fw water model
+* Revised: 27 Oct 2006 by Craig Knox
+* Revised: 20 Sep 2023 by Zhi Yue
+*
+36  1
+
+!references:
+!
+!(1)
+!S. L. Mayo, B. D. Olafson, and W. A. Goddard,
+!"DREIDING: A Generic Force Field for Molecular Simulations",
+!J. Phys. Chem. 94, 8897-8909 (1990)
+!
+!(2)
+!S. S. Jang, V. Molinero, T. Cagin, and W. A. Goddard,
+!"Nanophase-Segregation and Transport in Nafion 117 from
+!Molecular Dynamics Simulations: Effect of Monomeric Sequence",
+!J. Phys. Chem. B 108, 3149-3157 (2004)
+!
+!(3)
+!S. S. Jang, M. Blanco, W. A. Goddard, G. Caldwell, and R. B. Ross,
+!"The Source of Helicity in Perfluorinated N-Alkanes",
+!Macromolecules 36, 5331-5341 (2003)
+!
+!(4)
+!M. Levitt, M. Hirshberg, R. Sharon, K. E. Laidig, and V. Daggett,
+!"Calibration and Testing of a Water Model for Simulation of the
+!Molecular Dynamics of Proteins and Nucleic Acids in Solution",
+!J. Phys. Chem. B 101, 5051-5061 (1997)
+!
+!(5) SPC/Fw
+!
+!Y. Wu, H. L. Tepper, and G. A. Voth.
+!"Flexible simple point-charge water model with improved liquid-state
+! properties",
+!J. Chem. Phys. 124, 024503 (2006)
+!
+!(6) hydronium
+!
+!R. Biswas, Y.-L. S. Tse, A. Tokmakoff, and G. A. Voth.
+!"Role of Presolvation and Anharmonicity in Aqueous Phase Hydrated
+!Proton Solvation and Transport",
+!J. Phys. Chem. B 120, 1793-1804 (2016)
+
+!Nafion
+MASS    1  C_3T      12.01100 C  ! sp3 carbon (Teflon back-bone & CF3)
+MASS    2  C_3       12.01100 C  ! sp3 carbon (side-chain, except CF3)
+MASS    3  O_3       15.99940 O  ! sp3 oxygen (ether)
+MASS    4  O_2       15.99940 O  ! resonant sp2 oxygen (sulfonate)
+MASS    5  F_        18.99800 F  ! CF & CF2 fluorine
+MASS    6  F_3       18.99800 F  ! CF3 fluorine
+MASS    7  S_3       32.06000 S  ! sp3 sulfur
+!MS-EVB
+MASS    8  HSP        1.00800 H  ! SPCF/Fw water model hydrogen
+MASS    9  OP        15.99940 O  ! SPCF/Fw water model oxygen
+MASS   10  HTH        1.00800 H  ! hydronium hydrogen
+MASS   11  OTH       15.99940 O  ! hydronium oxygen
+
+DECLARE -C2
+DECLARE +C1
+DEFAULT FIRST HEAD LAST TAIL
+AUTOGENERATE ANGLES DIHEDRALS
+
+!!!!!!!!!!!!
+!! Nafion !!
+!!!!!!!!!!!!
+
+! N (tetrafluoroethylene) monomer
+! primary source for partial charges: reference 3
+RESI N              0.0000
+GROUP
+ATOM C1     C_3T    0.5200
+ATOM F1     F_     -0.2600 !     F1  F3
+ATOM F2     F_     -0.2600 !     |   |
+GROUP	                   ! -[--C1--C2--]-
+ATOM C2     C_3T    0.5200 !     |   |
+ATOM F3     F_     -0.2600 !     F2  F4
+ATOM F4     F_     -0.2600
+BOND C1  F1
+BOND C1  F2
+BOND C1  C2
+BOND C2  F3
+BOND C2  F4
+BOND C2   +C1
+
+! Nafion pendant sidechain (perfluorosulfonic vinyl ether) monomer;
+! chiral centers (C1,C4) are (L,L); head-to-tail direction
+! primary source for partial charges: references 2 & 3
+RESI PLLH           -1.000
+GROUP
+ATOM C1     C_3     0.4751
+ATOM C3     C_3     0.8421 !     F1  F2	
+ATOM C4     C_3     0.4118 !     |   |	
+ATOM C5     C_3T    0.8432 ! -[--C1--C2--]-
+ATOM C6     C_3     0.8398 !     |   |	
+ATOM C7     C_3     0.3081 !     O1  F3	
+ATOM O1     O_3    -0.4870 !     |		
+ATOM O2     O_3    -0.5416 !  F4-C3-F5 F7	
+ATOM O3     O_2    -0.6142 !     |    /	
+ATOM O4     O_2    -0.6142 !  F6-C4-C5-F8	
+ATOM O5     O_2    -0.6142 !     |    \	
+ATOM F1     F_     -0.2502 !     O2    F9	
+ATOM F4     F_     -0.2646 !     |		
+ATOM F5     F_     -0.2646 ! F10-C6-F11	
+ATOM F6     F_     -0.2695 !     |		
+ATOM F7     F_3    -0.2559 ! F12-C7-F13	
+ATOM F8     F_3    -0.2559 !     |		
+ATOM F9     F_3    -0.2559 !     S		
+ATOM F10    F_     -0.2423 !    /|\	
+ATOM F11    F_     -0.2423 !   / | \	
+ATOM F12    F_     -0.3147 !  O3 O4 O5	
+ATOM F13    F_     -0.3147
+ATOM S      S_3     1.0817
+GROUP
+ATOM C2     C_3T    0.5200
+ATOM F2     F_     -0.2600
+ATOM F3     F_     -0.2600
+BOND C1  F1
+BOND C1  O1
+BOND C1  C2
+BOND C2  F2
+BOND C2  F3
+BOND C2   +C1
+BOND O1  C3
+BOND C3  F4
+BOND C3  F5
+BOND C3  C4
+BOND C4  F6
+BOND C4  C5
+BOND C4  O2
+BOND C5  F7
+BOND C5  F8
+BOND C5  F9
+BOND O2  C6
+BOND C6  F10
+BOND C6  F11
+BOND C6  C7
+BOND C7  F12
+BOND C7  F13
+BOND C7  S
+BOND S   O3
+BOND S   O4
+BOND S   O5
+ACCEPTOR O1
+ACCEPTOR O2
+ACCEPTOR O3
+ACCEPTOR O4
+ACCEPTOR O5
+
+! Nafion pendant sidechain (perfluorosulfonic vinyl ether) monomer;
+! chiral centers (C1,C4) are (L,D); head-to-tail direction
+! primary source for partial charges: references 2 & 3
+RESI PLDH          -1.0000
+GROUP
+ATOM C1     C_3     0.4751
+ATOM C3     C_3     0.8421 !     F1  F2	
+ATOM C4     C_3     0.4118 !     |   |	
+ATOM C5     C_3T    0.8432 ! -[--C1--C2--]-
+ATOM C6     C_3     0.8398 !     |   |	
+ATOM C7     C_3     0.3081 !     O1  F3	
+ATOM O1     O_3    -0.4870 !     |		
+ATOM O2     O_3    -0.5416 !  F4-C3-F5 F7	
+ATOM O3     O_2    -0.6142 !     |    /	
+ATOM O4     O_2    -0.6142 !  F6-C4-C5-F8	
+ATOM O5     O_2    -0.6142 !     |    \	
+ATOM F1     F_     -0.2502 !     O2    F9	
+ATOM F4     F_     -0.2646 !     |		
+ATOM F5     F_     -0.2646 ! F10-C6-F11	
+ATOM F6     F_     -0.2695 !     |		
+ATOM F7     F_3    -0.2559 ! F12-C7-F13	
+ATOM F8     F_3    -0.2559 !     |		
+ATOM F9     F_3    -0.2559 !     S		
+ATOM F10    F_     -0.2423 !    /|\	
+ATOM F11    F_     -0.2423 !   / | \	
+ATOM F12    F_     -0.3147 !  O3 O4 O5	
+ATOM F13    F_     -0.3147
+ATOM S      S_3     1.0817
+GROUP
+ATOM C2     C_3T    0.5200
+ATOM F2     F_     -0.2600
+ATOM F3     F_     -0.2600
+BOND C1  F1
+BOND C1  O1
+BOND C1  C2
+BOND C2  F2
+BOND C2  F3
+BOND C2   +C1
+BOND O1  C3
+BOND C3  F4
+BOND C3  F5
+BOND C3  C4
+BOND C4  F6
+BOND C4  C5
+BOND C4  O2
+BOND C5  F7
+BOND C5  F8
+BOND C5  F9
+BOND O2  C6
+BOND C6  F10
+BOND C6  F11
+BOND C6  C7
+BOND C7  F12
+BOND C7  F13
+BOND C7  S
+BOND S   O3
+BOND S   O4
+BOND S   O5
+ACCEPTOR O1
+ACCEPTOR O2
+ACCEPTOR O3
+ACCEPTOR O4
+ACCEPTOR O5
+
+! Nafion pendant sidechain (perfluorosulfonic vinyl ether) monomer;
+! chiral centers (C1,C4) are (D,L); head-to-tail direction
+! primary source for partial charges: references 2 & 3
+RESI PDLH          -1.0000
+GROUP
+ATOM C1     C_3     0.4751
+ATOM C3     C_3     0.8421 !     F1  F2	
+ATOM C4     C_3     0.4118 !     |   |	
+ATOM C5     C_3T    0.8432 ! -[--C1--C2--]-
+ATOM C6     C_3     0.8398 !     |   |	
+ATOM C7     C_3     0.3081 !     O1  F3	
+ATOM O1     O_3    -0.4870 !     |		
+ATOM O2     O_3    -0.5416 !  F4-C3-F5 F7	
+ATOM O3     O_2    -0.6142 !     |    /	
+ATOM O4     O_2    -0.6142 !  F6-C4-C5-F8	
+ATOM O5     O_2    -0.6142 !     |    \	
+ATOM F1     F_     -0.2502 !     O2    F9	
+ATOM F4     F_     -0.2646 !     |		
+ATOM F5     F_     -0.2646 ! F10-C6-F11	
+ATOM F6     F_     -0.2695 !     |		
+ATOM F7     F_3    -0.2559 ! F12-C7-F13	
+ATOM F8     F_3    -0.2559 !     |		
+ATOM F9     F_3    -0.2559 !     S		
+ATOM F10    F_     -0.2423 !    /|\	
+ATOM F11    F_     -0.2423 !   / | \	
+ATOM F12    F_     -0.3147 !  O3 O4 O5	
+ATOM F13    F_     -0.3147
+ATOM S      S_3     1.0817
+GROUP
+ATOM C2     C_3T    0.5200
+ATOM F2     F_     -0.2600
+ATOM F3     F_     -0.2600
+BOND C1  F1
+BOND C1  O1
+BOND C1  C2
+BOND C2  F2
+BOND C2  F3
+BOND C2   +C1
+BOND O1  C3
+BOND C3  F4
+BOND C3  F5
+BOND C3  C4
+BOND C4  F6
+BOND C4  C5
+BOND C4  O2
+BOND C5  F7
+BOND C5  F8
+BOND C5  F9
+BOND O2  C6
+BOND C6  F10
+BOND C6  F11
+BOND C6  C7
+BOND C7  F12
+BOND C7  F13
+BOND C7  S
+BOND S   O3
+BOND S   O4
+BOND S   O5
+ACCEPTOR O1
+ACCEPTOR O2
+ACCEPTOR O3
+ACCEPTOR O4
+ACCEPTOR O5
+
+! Nafion pendant sidechain (perfluorosulfonic vinyl ether) monomer;
+! chiral centers (C1,C4) are (D,D); head-to-tail direction
+! primary source for partial charges: references 2 & 3
+RESI PDDH          -1.0000
+GROUP
+ATOM C1     C_3     0.4751
+ATOM C3     C_3     0.8421 !     F1  F2	
+ATOM C4     C_3     0.4118 !     |   |	
+ATOM C5     C_3T    0.8432 ! -[--C1--C2--]-
+ATOM C6     C_3     0.8398 !     |   |	
+ATOM C7     C_3     0.3081 !     O1  F3	
+ATOM O1     O_3    -0.4870 !     |		
+ATOM O2     O_3    -0.5416 !  F4-C3-F5 F7	
+ATOM O3     O_2    -0.6142 !     |    /	
+ATOM O4     O_2    -0.6142 !  F6-C4-C5-F8	
+ATOM O5     O_2    -0.6142 !     |    \	
+ATOM F1     F_     -0.2502 !     O2    F9	
+ATOM F4     F_     -0.2646 !     |		
+ATOM F5     F_     -0.2646 ! F10-C6-F11	
+ATOM F6     F_     -0.2695 !     |		
+ATOM F7     F_3    -0.2559 ! F12-C7-F13	
+ATOM F8     F_3    -0.2559 !     |		
+ATOM F9     F_3    -0.2559 !     S		
+ATOM F10    F_     -0.2423 !    /|\	
+ATOM F11    F_     -0.2423 !   / | \	
+ATOM F12    F_     -0.3147 !  O3 O4 O5	
+ATOM F13    F_     -0.3147
+ATOM S      S_3     1.0817
+GROUP
+ATOM C2     C_3T    0.5200
+ATOM F2     F_     -0.2600
+ATOM F3     F_     -0.2600
+BOND C1  F1
+BOND C1  O1
+BOND C1  C2
+BOND C2  F2
+BOND C2  F3
+BOND C2  +C1
+BOND O1  C3
+BOND C3  F4
+BOND C3  F5
+BOND C3  C4
+BOND C4  F6
+BOND C4  C5
+BOND C4  O2
+BOND C5  F7
+BOND C5  F8
+BOND C5  F9
+BOND O2  C6
+BOND C6  F10
+BOND C6  F11
+BOND C6  C7
+BOND C7  F12
+BOND C7  F13
+BOND C7  S
+BOND S   O3
+BOND S   O4
+BOND S   O5
+ACCEPTOR O1
+ACCEPTOR O2
+ACCEPTOR O3
+ACCEPTOR O4
+ACCEPTOR O5
+
+! Nafion pendant sidechain (perfluorosulfonic vinyl ether) monomer;
+! chiral centers (C2,C4) are (L,L); tail-to-head direction
+! primary source for partial charges: references 2 & 3
+RESI PLLT          -1.0000
+GROUP
+ATOM C1     C_3T    0.5200
+ATOM F2     F_     -0.2600 !     F2  F1	
+ATOM F3     F_     -0.2600 !     |   |	
+GROUP	                   ! -[--C1--C2--]-	
+ATOM C2     C_3     0.4751 !     |   |	
+ATOM C3     C_3     0.8421 !     F3  O1	
+ATOM C4     C_3     0.4118 !         |	
+ATOM C5     C_3T    0.8432 !      F4-C3-F5 F7
+ATOM C6     C_3     0.8398 !         |    /	
+ATOM C7     C_3     0.3081 !      F6-C4-C5-F8
+ATOM O1     O_3    -0.4870 !         |    \	
+ATOM O2     O_3    -0.5416 !         O2    F9
+ATOM O3     O_2    -0.6142 !         |	
+ATOM O4     O_2    -0.6142 !     F10-C6-F11	
+ATOM O5     O_2    -0.6142 !         |	
+ATOM F1     F_     -0.2502 !     F12-C7-F13	
+ATOM F4     F_     -0.2646 !         |	
+ATOM F5     F_     -0.2646 !         S	
+ATOM F6     F_     -0.2695 !        /|\	
+ATOM F7     F_3    -0.2559 !       / | \	
+ATOM F8     F_3    -0.2559 !      O3 O4 O5	
+ATOM F9     F_3    -0.2559
+ATOM F10    F_     -0.2423
+ATOM F11    F_     -0.2423
+ATOM F12    F_     -0.3147
+ATOM F13    F_     -0.3147
+ATOM S      S_3     1.0817
+BOND C1  F2
+BOND C1  F3
+BOND C1  C2
+BOND C2  F1
+BOND C2  O1
+BOND C2  +C1
+BOND O1  C3
+BOND C3  F4
+BOND C3  F5
+BOND C3  C4
+BOND C4  F6
+BOND C4  C5
+BOND C4  O2
+BOND C5  F7
+BOND C5  F8
+BOND C5  F9
+BOND O2  C6
+BOND C6  F10
+BOND C6  F11
+BOND C6  C7
+BOND C7  F12
+BOND C7  F13
+BOND C7  S
+BOND S   O3
+BOND S   O4
+BOND S   O5
+ACCEPTOR O1
+ACCEPTOR O2
+ACCEPTOR O3
+ACCEPTOR O4
+ACCEPTOR O5
+
+! Nafion pendant sidechain (perfluorosulfonic vinyl ether) monomer;
+! chiral centers (C2,C4) are (L,D); tail-to-head direction
+! primary source for partial charges: references 2 & 3
+RESI PLDT          -1.0000
+GROUP
+ATOM C1     C_3T    0.5200
+ATOM F2     F_     -0.2600 !     F2  F1	
+ATOM F3     F_     -0.2600 !     |   |	
+GROUP	                   ! -[--C1--C2--]-	
+ATOM C2     C_3     0.4751 !     |   |	
+ATOM C3     C_3     0.8421 !     F3  O1	
+ATOM C4     C_3     0.4118 !         |	
+ATOM C5     C_3T    0.8432 !      F4-C3-F5 F7
+ATOM C6     C_3     0.8398 !         |    /	
+ATOM C7     C_3     0.3081 !      F6-C4-C5-F8
+ATOM O1     O_3    -0.4870 !         |    \	
+ATOM O2     O_3    -0.5416 !         O2    F9
+ATOM O3     O_2    -0.6142 !         |	
+ATOM O4     O_2    -0.6142 !     F10-C6-F11	
+ATOM O5     O_2    -0.6142 !         |	
+ATOM F1     F_     -0.2502 !     F12-C7-F13	
+ATOM F4     F_     -0.2646 !         |	
+ATOM F5     F_     -0.2646 !         S	
+ATOM F6     F_     -0.2695 !        /|\	
+ATOM F7     F_3    -0.2559 !       / | \	
+ATOM F8     F_3    -0.2559 !      O3 O4 O5	
+ATOM F9     F_3    -0.2559
+ATOM F10    F_     -0.2423
+ATOM F11    F_     -0.2423
+ATOM F12    F_     -0.3147
+ATOM F13    F_     -0.3147
+ATOM S      S_3     1.0817
+BOND C1  F2
+BOND C1  F3
+BOND C1  C2
+BOND C2  F1
+BOND C2  O1
+BOND C2  +C1
+BOND O1  C3
+BOND C3  F4
+BOND C3  F5
+BOND C3  C4
+BOND C4  F6
+BOND C4  C5
+BOND C4  O2
+BOND C5  F7
+BOND C5  F8
+BOND C5  F9
+BOND O2  C6
+BOND C6  F10
+BOND C6  F11
+BOND C6  C7
+BOND C7  F12
+BOND C7  F13
+BOND C7  S
+BOND S   O3
+BOND S   O4
+BOND S   O5
+ACCEPTOR O1
+ACCEPTOR O2
+ACCEPTOR O3
+ACCEPTOR O4
+ACCEPTOR O5
+
+! Nafion pendant sidechain (perfluorosulfonic vinyl ether) monomer;
+! chiral centers (C2,C4) are (D,L); tail-to-head direction
+! primary source for partial charges: references 2 & 3
+RESI PDLT          -1.0000
+GROUP
+ATOM C1     C_3T    0.5200
+ATOM F2     F_     -0.2600 !     F2  F1	
+ATOM F3     F_     -0.2600 !     |   |	
+GROUP	                   ! -[--C1--C2--]-	
+ATOM C2     C_3     0.4751 !     |   |	
+ATOM C3     C_3     0.8421 !     F3  O1	
+ATOM C4     C_3     0.4118 !         |	
+ATOM C5     C_3T    0.8432 !      F4-C3-F5 F7
+ATOM C6     C_3     0.8398 !         |    /	
+ATOM C7     C_3     0.3081 !      F6-C4-C5-F8
+ATOM O1     O_3    -0.4870 !         |    \	
+ATOM O2     O_3    -0.5416 !         O2    F9
+ATOM O3     O_2    -0.6142 !         |	
+ATOM O4     O_2    -0.6142 !     F10-C6-F11	
+ATOM O5     O_2    -0.6142 !         |	
+ATOM F1     F_     -0.2502 !     F12-C7-F13	
+ATOM F4     F_     -0.2646 !         |	
+ATOM F5     F_     -0.2646 !         S	
+ATOM F6     F_     -0.2695 !        /|\	
+ATOM F7     F_3    -0.2559 !       / | \	
+ATOM F8     F_3    -0.2559 !      O3 O4 O5	
+ATOM F9     F_3    -0.2559
+ATOM F10    F_     -0.2423
+ATOM F11    F_     -0.2423
+ATOM F12    F_     -0.3147
+ATOM F13    F_     -0.3147
+ATOM S      S_3     1.0817
+BOND C1  F2
+BOND C1  F3
+BOND C1  C2
+BOND C2  F1
+BOND C2  O1
+BOND C2  +C1
+BOND O1  C3
+BOND C3  F4
+BOND C3  F5
+BOND C3  C4
+BOND C4  F6
+BOND C4  C5
+BOND C4  O2
+BOND C5  F7
+BOND C5  F8
+BOND C5  F9
+BOND O2  C6
+BOND C6  F10
+BOND C6  F11
+BOND C6  C7
+BOND C7  F12
+BOND C7  F13
+BOND C7  S
+BOND S   O3
+BOND S   O4
+BOND S   O5
+ACCEPTOR O1
+ACCEPTOR O2
+ACCEPTOR O3
+ACCEPTOR O4
+ACCEPTOR O5
+
+! Nafion pendant sidechain (perfluorosulfonic vinyl ether) monomer;
+! chiral centers (C2,C4) are (D,D); tail-to-head direction
+! primary source for partial charges: references 2 & 3
+RESI PDDT          -1.0000
+GROUP
+ATOM C1     C_3T    0.5200
+ATOM F2     F_     -0.2600 !     F2  F1	
+ATOM F3     F_     -0.2600 !     |   |	
+GROUP	                   ! -[--C1--C2--]-	
+ATOM C2     C_3     0.4751 !     |   |	
+ATOM C3     C_3     0.8421 !     F3  O1	
+ATOM C4     C_3     0.4118 !         |	
+ATOM C5     C_3T    0.8432 !      F4-C3-F5 F7
+ATOM C6     C_3     0.8398 !         |    /	
+ATOM C7     C_3     0.3081 !      F6-C4-C5-F8
+ATOM O1     O_3    -0.4870 !         |    \	
+ATOM O2     O_3    -0.5416 !         O2    F9
+ATOM O3     O_2    -0.6142 !         |	
+ATOM O4     O_2    -0.6142 !     F10-C6-F11	
+ATOM O5     O_2    -0.6142 !         |	
+ATOM F1     F_     -0.2502 !     F12-C7-F13	
+ATOM F4     F_     -0.2646 !         |	
+ATOM F5     F_     -0.2646 !         S	
+ATOM F6     F_     -0.2695 !        /|\	
+ATOM F7     F_3    -0.2559 !       / | \	
+ATOM F8     F_3    -0.2559 !      O3 O4 O5	
+ATOM F9     F_3    -0.2559
+ATOM F10    F_     -0.2423
+ATOM F11    F_     -0.2423
+ATOM F12    F_     -0.3147
+ATOM F13    F_     -0.3147
+ATOM S      S_3     1.0817
+BOND C1  F2
+BOND C1  F3
+BOND C1  C2
+BOND C2  F1
+BOND C2  O1
+BOND C2  +C1
+BOND O1  C3
+BOND C3  F4
+BOND C3  F5
+BOND C3  C4
+BOND C4  F6
+BOND C4  C5
+BOND C4  O2
+BOND C5  F7
+BOND C5  F8
+BOND C5  F9
+BOND O2  C6
+BOND C6  F10
+BOND C6  F11
+BOND C6  C7
+BOND C7  F12
+BOND C7  F13
+BOND C7  S
+BOND S   O3
+BOND S   O4
+BOND S   O5
+ACCEPTOR O1
+ACCEPTOR O2
+ACCEPTOR O3
+ACCEPTOR O4
+ACCEPTOR O5
+
+PATCH FIRST NONE LAST NONE ! override default patches for 1st & last residues
+
+! CF3 head group
+! primary source for partial charges: reference 3
+PRES HEAD           0.0000
+GROUP
+ATOM Ch     C_3T    0.7200 !   Fh1
+ATOM Fh1    F_3    -0.2400 !   |
+ATOM Fh2    F_3    -0.2400 ! --Ch--Fh2
+ATOM Fh3    F_3    -0.2400 !   |
+BOND Ch  Fh1               !   Fh3
+BOND Ch  Fh2
+BOND Ch  Fh3
+BOND Ch  C1  ! link (connect to 1st residue's carbon)
+
+! CF3 tail group
+! primary source for partial charges: reference 3
+PRES TAIL           0.0000
+GROUP
+ATOM Ct     C_3T    0.7200 !   Ft1
+ATOM Ft1    F_3    -0.2400 !   |
+ATOM Ft2    F_3    -0.2400 ! --Ct--Ft2
+ATOM Ft3    F_3    -0.2400 !   |
+BOND C2  Ct                !   Ft3
+BOND Ct  Ft1
+BOND Ct  Ft2
+BOND Ct  Ft3
+
+!!!!!!!!!!
+!!MS-EVB!!
+!!!!!!!!!!
+
+RESI SPCF           0.0000 ! SPC/Fw water model, generate using noangle nodihedral
+GROUP
+ATOM OH2    OP     -0.8200
+ATOM H1     HSP     0.4100
+ATOM H2     HSP     0.4100
+BOND OH2 H1 OH2 H2 ! no H1-H2 bond for SPC/Fw
+ANGLE H1 OH2 H2    ! required
+DONOR H1 OH2
+DONOR H2 OH2
+ACCEPTOR OH2
+PATCHING FIRS NONE LAST NONE
+
+RESI H3O            1.0000 ! hydronium
+GROUP
+ATOM OH2    OTH    -0.3200
+ATOM H1     HTH     0.4400
+ATOM H2     HTH     0.4400
+ATOM H3     HTH     0.4400
+BOND OH2 H1 OH2 H2 OH2 H3           ! no H*-H* bonds for hydronium
+ANGLE H1 OH2 H2 H2 OH2 H3 H1 OH2 H3 ! required
+DONOR H1 OH2
+DONOR H2 OH2
+DONOR H3 OH2
+ACCEPTOR OH2
+PATCHING FIRS NONE LAST NONE
+
+END

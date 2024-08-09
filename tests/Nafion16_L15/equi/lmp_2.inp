@@ -1,0 +1,75 @@
+# MM simulation of Nafion
+
+####################
+# Assign variables #
+####################
+
+variable name string nafion
+
+##################
+# Basic settings #
+##################
+
+units real
+
+###################
+# Bonded settings #
+###################
+
+atom_style     full
+bond_style     hybrid harmonic morse
+angle_style    harmonic
+dihedral_style charmm
+improper_style none
+
+######################
+# Nonbonded settings #
+######################
+
+pair_style   lj/cut/coul/long 14.0
+pair_modify  mix arithmetic
+kspace_style ewald 1e-5
+neighbor     2.0 bin
+neigh_modify delay 0 every 1 check yes
+
+#####################
+# Read restart file #
+#####################
+
+read_restart  ${name}-HEAT400.restart
+special_bonds dreiding
+
+####################################################################
+# User-defined nonbonded FF coefficients (read after restart file) #
+####################################################################
+
+include pair_coeff.inp
+
+#################################################################
+# User-defined bonded FF coefficients (read after restart file) #
+#################################################################
+
+include bond_coeff.inp
+
+######
+# MD #
+######
+
+# MD settings
+timestep       1.0
+
+thermo         1000
+thermo_style   custom step temp vol press ke pe etotal
+
+restart 10000  ${name}.restart1 ${name}.restart2
+
+# Heating
+dump          trj all custom 1000 ${name}-NPT400.lammpstrj &
+                  id type mol x y z
+dump_modify   trj sort id
+fix           npt all npt temp 400.0 400.0 100.0 iso 1.0 1.0 1000.0
+run           10000000 upto
+write_restart ${name}-NPT400.restart
+write_data    ${name}-NPT400.data nocoeff
+undump        trj
+unfix         npt

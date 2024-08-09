@@ -1,0 +1,5 @@
+bond_coeff  1 harmonic 529.581   1.012         # OW HW
+bond_coeff  2 morse    79.086356 2.083387 0.98 # OH HO
+
+angle_coeff 1 37.95   113.24   # HW OW HW
+angle_coeff 2 38.7434 111.7269 # HO OH HO

@@ -1,0 +1,204 @@
+* CHARMM Residue Parameter File for Nafion
+* Modified DREIDING Force Field with SPC/Fw water model
+* Revised: 27 Oct 2006 by Craig Knox
+* Revised: 20 Sep 2023 by Zhi Yue
+*
+
+!references:
+!
+!(1)
+!S. L. Mayo, B. D. Olafson, and W. A. Goddard,
+!"DREIDING: A Generic Force Field for Molecular Simulations",
+!J. Phys. Chem. 94, 8897-8909 (1990)
+!
+!(2)
+!S. S. Jang, V. Molinero, T. Cagin, and W. A. Goddard,
+!"Nanophase-Segregation and Transport in Nafion 117 from
+!Molecular Dynamics Simulations: Effect of Monomeric Sequence",
+!J. Phys. Chem. B 108, 3149-3157 (2004)
+!
+!(3)
+!S. S. Jang, M. Blanco, W. A. Goddard, G. Caldwell, and R. B. Ross,
+!"The Source of Helicity in Perfluorinated N-Alkanes",
+!Macromolecules 36, 5331-5341 (2003)
+!
+!(4)
+!M. Levitt, M. Hirshberg, R. Sharon, K. E. Laidig, and V. Daggett,
+!"Calibration and Testing of a Water Model for Simulation of the
+!Molecular Dynamics of Proteins and Nucleic Acids in Solution",
+!J. Phys. Chem. B 101, 5051-5061 (1997)
+!
+!(5) SPC/Fw
+!
+!Y. Wu, H. L. Tepper, and G. A. Voth.
+!"Flexible simple point-charge water model with improved liquid-state
+! properties",
+!J. Chem. Phys. 124, 024503 (2006)
+!
+!(6) hydronium
+!
+!R. Biswas, Y.-L. S. Tse, A. Tokmakoff, and G. A. Voth.
+!"Role of Presolvation and Anharmonicity in Aqueous Phase Hydrated
+!Proton Solvation and Transport",
+!J. Phys. Chem. B 120, 1793-1804 (2016)
+
+ATOMS
+!Nafion
+MASS    1  C_3T      12.01100 ! sp3 carbon (Teflon back-bone & CF3)
+MASS    2  C_3       12.01100 ! sp3 carbon (side-chain, except CF3)
+MASS    3  O_3       15.99940 ! sp3 oxygen (ether)
+MASS    4  O_2       15.99940 ! resonant sp2 oxygen (sulfonate)
+MASS    5  F_        18.99800 ! CF & CF2 fluorine
+MASS    6  F_3       18.99800 ! CF3 fluorine
+MASS    7  S_3       32.06000 ! sp3 sulfur
+!MS-EVB
+MASS    8  HSP        1.00800 ! SPCF/Fw water model hydrogen
+MASS    9  OP        15.99940 ! SPCF/Fw water model oxygen
+MASS   10  HTH        1.00800 ! hydronium hydrogen
+MASS   11  OTH       15.99940 ! hydronium oxygen
+
+
+BONDS
+!
+!V(bond) = Kb(b - b0)**2
+!
+!Kb: kcal/mole/A**2
+!b0: A
+!
+!atom type Kb          b0
+!
+!!!!!!!!!!!!
+!! Nafion !!
+!!!!!!!!!!!!
+C_3T  C_3T  214.6602    1.4982  ! Ref. 3
+C_3T  C_3   350.0000    1.5300  ! Ref. 1
+C_3   C_3   350.0000    1.5300  ! Ref. 1
+C_3   O_3   350.0000    1.4200  ! Ref. 1
+C_3T  F_    302.6298    1.3360  ! Ref. 3
+C_3   F_    302.6298    1.3360  ! Ref. 3
+C_3T  F_3   302.6298    1.3360  ! Ref. 3
+C_3   F_3   302.6298    1.3360  ! Ref. 3
+C_3   S_3   350.0000    1.8000  ! Ref. 2
+O_2   S_3   350.0000    1.4800  ! Ref. 2
+!!!!!!!!!!
+!!MS-EVB!!
+!!!!!!!!!!
+OP    HSP   529.5810    1.0120  ! SPC/Fw
+HSP   HSP     0.0000    1.6920  ! SPC/Fw
+OTH   HTH   450.0000    0.9572  ! hydronium. Fake parameter, need to be modified by morse potential
+
+ANGLES
+!
+!V(angle) = Ktheta(Theta - Theta0)**2
+!
+!V(Urey-Bradley) = Kub(S - S0)**2
+!
+!Ktheta: kcal/mole/rad**2
+!Theta0: degrees
+!Kub: kcal/mole/A**2 (Urey-Bradley)
+!S0: A
+!
+!atom types     Ktheta    Theta0   Kub     S0
+!
+!!!!!!!!!!!!
+!! Nafion !!
+!!!!!!!!!!!!
+C_3T C_3T C_3T  53.1370   122.5536            ! Ref. 3
+C_3  C_3T C_3T  53.1370   122.5536            ! Ref. 3
+C_3  C_3T C_3   53.1370   122.5536            ! Ref. 3
+C_3T C_3  C_3T  53.1370   122.5536            ! Ref. 3
+C_3  C_3  C_3T  53.1370   122.5536            ! Ref. 3
+C_3  C_3  C_3   53.1370   122.5536            ! Ref. 3
+C_3  O_3  C_3   50.0000   109.4710            ! Ref. 1, missing in Ref. 2
+F_   C_3T C_3T  50.1683   118.3191            ! Ref. 3
+F_3  C_3T C_3T  50.1683   118.3191            ! Ref. 3
+F_   C_3T C_3   50.1683   118.3191            ! Ref. 3
+F_3  C_3T C_3   50.1683   118.3191            ! Ref. 3
+F_   C_3  C_3T  50.1683   118.3191            ! Ref. 3
+F_3  C_3  C_3T  50.1683   118.3191            ! Ref. 3
+F_   C_3  C_3   50.1683   118.3191            ! Ref. 3
+F_3  C_3  C_3   50.1683   118.3191            ! Ref. 3
+F_   C_3T F_    54.1198   121.5020            ! Ref. 3
+F_3  C_3T F_    54.1198   121.5020            ! Ref. 3
+F_3  C_3T F_3   54.1198   121.5020            ! Ref. 3
+F_   C_3  F_    54.1198   121.5020            ! Ref. 3
+F_3  C_3  F_    54.1198   121.5020            ! Ref. 3
+F_3  C_3  F_3   54.1198   121.5020            ! Ref. 3
+O_2  S_3  C_3  175.0000   109.4710            ! Ref. unknown
+O_2  S_3  O_2  175.0000   115.5000            ! Ref. unknown
+O_3  C_3  C_3T  50.0000   109.4710            ! Ref. 1
+O_3  C_3  C_3   50.0000   109.4710            ! Ref. 1
+O_3  C_3  F_    50.0000   109.4710            ! Ref. 1
+S_3  C_3  C_3   50.0000   109.4710            ! Ref. 1
+S_3  C_3  F_    50.0000   109.4710            ! Ref. 1
+!!!!!!!!!!
+!!MS-EVB!!
+!!!!!!!!!!
+HSP  OP   HSP   37.9500   113.4000            ! SPC/Fw
+HTH  OTH  HTH   38.7434   111.7269            ! hydronium
+
+DIHEDRALS
+!
+!V(dihedral) = Kchi(1 + cos(n(chi) - delta))
+!
+!Kchi: kcal/mole
+!n: multiplicity
+!delta: degrees
+!
+!atom types             Kchi    n   delta
+!
+!!!!!!!!!!!!
+!! Nafion !!
+!!!!!!!!!!!!
+C_3T C_3T C_3T C_3T     0.3575  3   180.0000 ! Ref. 3
+F_   C_3T C_3T C_3T     0.4580  3   180.0000 ! Ref. 3
+F_3  C_3T C_3T C_3T     0.4580  3   180.0000 ! Ref. 3
+F_   C_3T C_3T F_       0.4492  3     0.0000 ! Ref. 3
+F_3  C_3T C_3T F_       0.4492  3     0.0000 ! Ref. 3
+F_3  C_3T C_3T F_3      0.4492  3     0.0000 ! Ref. 3
+X    C_3T C_3T X        0.1111  3     0.0000 ! Ref. 1
+X    C_3  C_3T X        0.1111  3     0.0000 ! Ref. 1
+X    C_3  C_3  X        0.1111  3     0.0000 ! Ref. 1
+X    O_3  C_3  X        0.3333  3     0.0000 ! Ref. 1
+X    S_3  C_3  X        0.1111  3     0.0000 ! Ref. 1
+
+NONBONDED
+!
+!V(Lennard-Jones) = Eps,i,j[(Rmin,i,j/ri,j)**12 - 2(Rmin,i,j/ri,j)**6]
+!
+!epsilon: kcal/mole, Eps,i,j = sqrt(eps,i * eps,j)
+!Rmin/2: A, Rmin,i,j = Rmin/2,i + Rmin/2,j
+!
+!atom  ignored    epsilon      Rmin/2   ignored   eps,1-4       Rmin/2,1-4
+!
+!!!!!!!!!!!!
+!! Nafion !!
+!!!!!!!!!!!!
+! carbons
+C_3T   0.000000  -0.084400     1.941900 ! Ref. 3
+C_3    0.000000  -0.095100     1.949200 ! Ref. 1
+! oxygens
+O_2    0.000000  -0.095700     1.702300 ! Ref. 1
+O_3    0.000000  -0.095700     1.702300 ! Ref. 1
+! fluorines
+F_     0.000000  -0.049600     1.697700 ! Ref. unknown
+F_3    0.000000  -0.049600     1.697700 ! Ref. unknown
+! sulfurs
+S_3    0.000000  -0.344000     2.015000 ! Ref. 1
+!!!!!!!!!!
+!!MS-EVB!!
+!!!!!!!!!!
+HSP    0.000000  -0.000000     0.0000   ! SPC/Fw hydrogen
+OP     0.000000  -0.155425     1.776570 ! SPC/Fw oxygen
+OTH    0.000000  -0.098609686  1.750203 ! hydronium oxygen
+HTH    0.000000  -0.000040458  0.000000 ! hydronium hydrogen
+
+NBFIX
+!              Emin         Rmin
+!            (kcal/mol)     (A)
+
+HBOND CUTHB 0.5  ! If you want to do hbond analysis (only), then use
+                 ! READ PARAM APPEND CARD
+                 ! to append hbond parameters from the file: par_hbond.inp
+
+END

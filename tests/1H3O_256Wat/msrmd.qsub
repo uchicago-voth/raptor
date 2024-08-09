@@ -1,0 +1,104 @@
+#! /bin/tcsh
+
+#SBATCH --job-name=msevb_1HCl256Water
+#SBATCH --output=slurm-%A.out
+#SBATCH --error=slurm-%A.err
+#
+#SBATCH --account=pi-gavoth
+#SBATCH --partition=gavoth-ivb
+#SBATCH --reservation=gavoth-shane
+#SBATCH --qos=gavoth
+#
+#SBATCH --nodelist=midway531
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=20
+#SBATCH --constraint=ib
+#SBATCH --exclusive
+#
+#SBATCH --time=24:00:00
+
+### Load LAMMPS/RAPTOR-necessary modules
+### Same modules loaded for installation
+module purge
+module load env/rcc slurm/current
+module load gcc/10.2.0
+module load intel/19.1.1
+module load intelmpi/2019.up7+intel-19.1.1
+module load mkl/2020.up1
+module load flex/2.6.1
+module load libmatheval/1.1
+
+### Define LAMMPS executable
+set exec = "$HOME/software/lammps3Nov2022_raptor2022.3/src/lmp_mpi"
+
+### Change this for each job
+set name = 1HCl256Water # system name
+set temp = 298.15       # temperature, K
+set lstp = 0.5          # step length, fs
+set leng = 5000         # simulation length, MD steps
+
+### Update this for every restarts
+set stage = 2 # current MD stage
+
+### Determine printing frequencies
+### By default trajectory & energetics are printed every 100 MD steps
+### By default restart file is written five times during an MD run
+set trjfrq = 100                                   # frequency of writing  trajectory
+set enefrq = 100                                   # frequency of printing thermodynamic info (T, E, p...)
+set rstfrq = `awk 'BEGIN{printf "%d", '$leng'/5}'` # frequency of writing  restart file
+
+### Set up scratch
+set rundir  = $SCRATCH/raptor_test_$name
+set workdir = `pwd`
+
+### Make subdirectories under rundir
+if ( ! -d $SCRATCH ) then
+  mkdir $SCRATCH
+endif
+
+mkdir $rundir
+
+### Copy required files to rundir
+cd $rundir
+cp -p $workdir/evb.{top,cfg,type} .
+cp -p $workdir/evb_single.par .
+cp -p $workdir/bond_coeff.inp .
+cp -p $workdir/pair_coeff.inp .
+if ( $stage == 1 ) then
+  cp -p $workdir/$name.data .
+  set randseed = `gawk 'BEGIN{srand();printf "%d", rand()*100000000}'`
+  sed "s/NAME/$name/g;\
+       s/STAGE/$stage/g;\
+       s/MDTEMP/$temp/g;\
+       s/LSTEP/$lstp/g;\
+       s/MDSTEP/$leng/g;\
+       s/ENEFRQ/$enefrq/g;\
+       s/TRJFRQ/$trjfrq/g;\
+       s/RSTFRQ/$rstfrq/g;\
+       s/RANDSEED/$randseed/g" $workdir/md_init.lmp > md_$stage.inp
+else
+  @ lstage = $stage - 1
+  cp -p $workdir/stage$lstage/md_$lstage.restart md_prev.restart
+  sed "s/NAME/$name/g;\
+       s/STAGE/$stage/g;\
+       s/MDTEMP/$temp/g;\
+       s/LSTEP/$lstp/g;\
+       s/MDSTEP/$leng/g;\
+       s/ENEFRQ/$enefrq/g;\
+       s/TRJFRQ/$trjfrq/g;\
+       s/RSTFRQ/$rstfrq/g" $workdir/md_cont.lmp > md_$stage.inp
+endif
+
+### Submit job using mpirun. Do not change.
+mpirun -genv OMP_NUM_THREADS=1 -np ${SLURM_NTASKS} $exec -in md_$stage.inp > md_$stage.out
+
+### Clean up scratch
+mkdir stage$stage
+mv md_$stage.{inp,out,lammpstrj,restart,data} log.lammps stage$stage/
+mv timing.log evb.out evb.cfg-raptor.out stage$stage/
+
+cd $workdir
+mv $rundir/stage$stage .
+rm -rf $rundir
+
+exit

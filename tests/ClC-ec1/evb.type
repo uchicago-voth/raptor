@@ -1,0 +1,145 @@
+:::::::::::
+:: Water ::
+:::::::::::
+
+: H3O
+:
+:      HO        2
+:      |         |
+:      OH        1
+:     / \       / \
+:   HO   HO    3   4
+:
+: Note: CHARMM c27 defines atom types HTH & OTH
+:
+: H2O
+:
+: HW---OW---HW      2---1---3
+:
+: Note: CHARMM c27 defines atom types HT & OT
+:
+
+: Atom Type
+: Check the "Masses" section of *.data
+#define HW  4
+#define OW 36
+#define OH 54
+#define HO 55
+
+: Bond Type
+: Check the "Bond Coeffs" section of *.data or bond_coeff.inp
+#define OW-HW 86
+#define OH-HO 87
+
+: Angle Type
+: Check the "Angle Coeffs" section of *.data or bond_coeff.inp
+#define HW-OW-HW 183
+#define HO-OH-HO 184
+
+:::::::::::::::::
+:: ClC-ec1 Glu ::
+:::::::::::::::::
+
+: GL2-P
+:
+:     HA    HA     OB              2     5
+:     |     |     //               |    //
+:   --CT2---CT2--CD         ---8---1---4
+:     |     |     \                |    \
+:     HA    HA     OH1--H          3     6--7
+:
+
+: GL2-D
+:
+:     HA    HA     OC              2     5
+:     |     |     //               |    //
+:   --CT2---CT2--CC         ---7---1---4
+:     |     |     \                |    \
+:     HA    HA     OC(-)           3     6
+:
+
+: Atom Type
+: Check the "Masses" section of *.data
+#define H    1
+#define HA   3
+#define CT2 13
+#define CC  22
+#define CD  23
+#define OB  33
+#define OC  34
+#define OH1 35
+
+
+: Bond Type (E203)
+: Check the "Bond Coeffs" section of *.data or bond_coeff.inp
+:
+: GL2-P
+: GL2_BOND_1, 4-1, CD-CT2
+: GL2_BOND_2, 4-5, CD-OB
+: GL2_BOND_3, 6-4, OH1-CD
+: GL2_BOND_4, 6-7, OH1-H
+:
+: GL2-D
+: GL2_BOND_1, 4-1,   CC-CT2
+: GL2_BOND_5, 4-5/6, CC-OC
+:
+: Note: Bonds CD-CT2 & CC-CT2 have the same bond potential
+:
+#define GL2_BOND_1 19
+#define GL2_BOND_2 20
+#define GL2_BOND_3 21
+#define GL2_BOND_4 81
+#define GL2_BOND_5 18
+
+
+: Angle Type (E203)
+: Check the "Angle Coeffs" section of *.data or bond_coeff.inp
+:
+: GL2-P
+: GL2_ANGLE_1, 1-4-5, CT2-CD-OB
+: GL2_ANGLE_2, 1-4-6, CT2-CD-OH1
+: GL2_ANGLE_3, 5-4-6, OB-CD-OH1
+: GL2_ANGLE_4, 4-6-7, CD-OH1-H
+:
+: GL2-D
+: GL2_ANGLE_5, 1-4-5/6, CT2-CC-OC
+: GL2_ANGLE_6, 5-4-6,   OC-CC-OC
+:
+#define GL2_ANGLE_1 104
+#define GL2_ANGLE_2 105
+#define GL2_ANGLE_3 192
+#define GL2_ANGLE_4  42
+#define GL2_ANGLE_5 103
+#define GL2_ANGLE_6 194
+
+
+: Dihedral Type (E203)
+: Check the "Dihedral Coeffs" section of *.data or bond_coeff.inp
+:
+: GL2-P
+: GL2_DIHED_1, 5/6-4-1-2/3/8, OB/OH1-CD-CT2-HA/CT2
+: GL2_DIHED_2, 1/5-4-6-7,     CT2/OB-CD-OH1-H
+:
+: GL2-D
+: GL2_DIHED_3, 5/6-4-1-2/3/7, OC-CC-CT2-HA/CT2
+:
+: Note: Diderals OB/OH1-CD-CT2-HA/CT2 have the same dihedral potential
+: Note: Diderals CT2/OB-CD-OH1-H      have the same dihedral potential
+: Note: Diderals OC-CC-CT2-HA/CT2     have the same dihedral potential
+:
+#define GL2_DIHED_1 205
+#define GL2_DIHED_2 189
+#define GL2_DIHED_3 204
+
+
+: Improper Type (E203)
+: Check the "Improper Coeffs" section of *.data or bond_coeff.inp
+:
+: GL2-P
+: GL2_IMPRO_1, 5-6-1-4, OB-OH1-CT2-CD
+:
+: GL2-D
+: GL2_IMPRO_2, 5-6-1-4, OC-OC-CT2-CC
+:
+#define GL2_IMPRO_1 10
+#define GL2_IMPRO_2  8

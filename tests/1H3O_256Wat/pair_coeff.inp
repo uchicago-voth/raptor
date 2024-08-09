@@ -1,0 +1,6 @@
+pair_coeff 1 1 0.155425    3.16548787137 # OW OW
+pair_coeff 2 2 0.0         0.0           # HW HW
+pair_coeff 3 3 0.098609686 3.11850721837 # OH OH
+pair_coeff 4 4 0.000040458 0.0           # HO HO
+pair_coeff 5 5 0.15        4.04468018036 # Cl Cl
+pair_coeff 2 3 3.0         1.6           # HW OH
