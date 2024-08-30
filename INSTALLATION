@@ -41,9 +41,10 @@ Installation
    * MOLECULE
    * KSPACE
 
-2. When the LAMMPS instance is installed with PLUMED patch, an additional `make yes-PLUMED` is required. _After_ the LAMMPS with patched with PLUMED, two files, `fix_plumed.cpp` and `fix_plumed.h` need to be replaced with the files in `plumed` folder to ensure correct interface between RAPTOR and PLUMED, namely:
+2. When the LAMMPS instance is installed with PLUMED patch, an additional `make yes-PLUMED` is required. _After_ the LAMMPS with patched with PLUMED, two files, `fix_plumed.cpp` and `fix_plumed.h` need to be patched as well. This patch ensure correct interface between RAPTOR and PLUMED, namely:
 - The CEC can be accessed through additional virtual atoms in PLUMED
 - The bias force can be correctly treated by RAPTOR
+If this patch is not installed automatically, please manually merge the two files in colvars to your LAMMPS installation.
 
 3. Here's an example of commands that can be used to build LAMMPS with RAPTOR:
 
