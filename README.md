@@ -18,6 +18,8 @@ Please read the Licensing Agreement, download the [PDF version](https://software
 
 The newest release of RAPTOR® (2022.3) is compatible with LAMMPS in version [23Jun2022](https://software.rcc.uchicago.edu/raptor/download/lammps-23Jun2022.tar.gz).
 
+The 'develop-2025' branch contains a port of the RAPTOR code that is compatible with the LAMMPS development version from March 30th, 2026, commit 697545ba8b25df7b83482e936738c87f93d15255.
+
 ## Please Cite
 
 - S. Kaiser, Z. Yue, Y. Peng, T. Nguyen, S. Chen, D. Teng, and G. A. Voth, “Molecular Dynamics Simulation of Complex Reactivity with the Rapid Approach for Proton Transport and Other Reactions (RAPTOR) Software Package”, _J. Phys. Chem. B._ **128**, 4959 – 4974 (2024). 
