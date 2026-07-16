@@ -47,13 +47,13 @@ class EVB_Matrix : protected Pointers, protected EVB_Pointers
  public:
   EVB_Matrix(class LAMMPS *, class EVB_Engine *);
   virtual ~EVB_Matrix();
-  
+
  public:
-  double sci_e_env[EDIAG_NITEM];  
+  double sci_e_env[EDIAG_NITEM];
   double energy[EDIAG_NITEM /* e_env */ + MAX_STATE*(EDIAG_NITEM+1 /* potential + repulsive */ )];
   double energy_allreduce[EDIAG_NITEM /* e_env */ + MAX_STATE*(EDIAG_NITEM+1 /* potential + repulsive */ )];
   int size_e, size_ediag;
-  
+
   double v[6];
   double v_env[6];
   double v_diagonal[MAX_STATE][6];
@@ -64,13 +64,13 @@ class EVB_Matrix : protected Pointers, protected EVB_Pointers
   double *e_diag;
   double *e_diagonal[MAX_STATE];
   double *e_repulsive;
-  
+
   double e_offdiag[MAX_STATE-1][EOFF_NITEM];
   double e_extra[MAX_EXTRA][EOFF_NITEM];
-  
+
   int ndx_offdiag[MAX_STATE*10];
-  int ndx_extra[MAX_EXTRA*10]; 
- 
+  int ndx_extra[MAX_EXTRA*10];
+
   double **f_env;
   double ***f_diagonal;
   double ***f_off_diagonal;
@@ -84,8 +84,8 @@ class EVB_Matrix : protected Pointers, protected EVB_Pointers
   double eigen_value[MAX_STATE];
   int ground_state,pivot_state;
   double ground_state_energy;
-	
-  void save_ev_diag(int,bool);
+
+  void save_ev_diag(int,bool,int kspace_cplx=0, int accumulate=0);
   void save_ev_offdiag(bool,int,bool);
   void total_energy();
   void diagonalize();
@@ -99,7 +99,7 @@ class EVB_Matrix : protected Pointers, protected EVB_Pointers
   int num_rot;
   void jacobi(double **, int, double *, double **, int *);
 };
-  
+
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/

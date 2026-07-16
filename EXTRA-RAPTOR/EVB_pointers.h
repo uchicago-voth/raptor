@@ -21,6 +21,7 @@ class EVB_Pointers
     EVB_Pointers(EVB_Engine *engine) :
     evb_engine(engine),
     evb_kspace(engine->evb_kspace),
+    evb_kspace_cplx(engine->evb_kspace_cplx),
     evb_type(engine->evb_type),
     evb_chain(engine->evb_chain),
     evb_reaction(engine->evb_reaction),
@@ -29,28 +30,29 @@ class EVB_Pointers
     evb_matrix(engine->evb_matrix),
     evb_repulsive(engine->evb_repulsive),
     evb_offdiag(engine->evb_offdiag),
-    evb_effpair(engine->evb_effpair), 
+    evb_effpair(engine->evb_effpair),
     evb_timer(engine->evb_timer)
     { }
-    
-  virtual ~EVB_Pointers() {}
-  
+
+  virtual ~EVB_Pointers() noexcept(false) {}
+
   protected:
     EVB_Engine *evb_engine;
-    EVB_KSpace *&evb_kspace;  
-        
-    EVB_Type *&evb_type;  
+    EVB_KSpace *&evb_kspace;
+    EVB_KSpace *&evb_kspace_cplx;
+
+    EVB_Type *&evb_type;
     EVB_Chain *&evb_chain;
     EVB_List *&evb_list;
-    EVB_Reaction *&evb_reaction;   
+    EVB_Reaction *&evb_reaction;
     EVB_Matrix *&evb_matrix;
-    EVB_Complex *&evb_complex; 
+    EVB_Complex *&evb_complex;
     EVB_Repulsive *&evb_repulsive;
-    EVB_OffDiag *&evb_offdiag;  
+    EVB_OffDiag *&evb_offdiag;
     EVB_EffPair *&evb_effpair;
     EVB_Timer *&evb_timer;
 };
-  
+
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/

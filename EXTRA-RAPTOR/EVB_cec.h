@@ -22,15 +22,15 @@ class EVB_CEC : protected Pointers, protected EVB_Pointers
  public:
   EVB_CEC(class LAMMPS*, class EVB_Engine*, class EVB_Complex*);
   ~EVB_CEC();
-    
+
   class EVB_Complex* cplx;
-  
-  double r_cec[3]; 
+
+  double r_cec[3];
   double ref[3];
 
   int natom_coc[MAX_STATE];
   double qsum_coc[MAX_STATE];
-  
+
   double r_coc[MAX_STATE][3];
   int* id_coc[MAX_STATE];
   double* qi_coc[MAX_STATE];
@@ -53,13 +53,13 @@ class EVB_CEC : protected Pointers, protected EVB_Pointers
   void partial_C_N2(double *force);
 
   void partial_C_N3_omp(double *force); // AWGL
-  
+
 };
 
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
-    
+
 }
 
 # endif

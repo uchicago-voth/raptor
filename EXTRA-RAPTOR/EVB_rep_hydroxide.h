@@ -26,7 +26,7 @@ class EVB_Rep_Hydroxide : public EVB_Repulsive
   public:
     EVB_Rep_Hydroxide(class LAMMPS *, class EVB_Engine*);
     virtual ~EVB_Rep_Hydroxide();
- 
+
   public:
     virtual int data_rep(char*, int*, int, int);
 
@@ -61,7 +61,7 @@ class EVB_Rep_Hydroxide : public EVB_Repulsive
     double sw;
     double dfx,dfy,dfz;
 };
- 
+
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/

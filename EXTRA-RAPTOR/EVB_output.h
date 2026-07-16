@@ -38,7 +38,7 @@ class EVB_Output : protected Pointers, protected EVB_Pointers
     int bStates;
     int bEnergy;
     int bEneDecompose;
-	
+
   public:
     int data_output(char*, int*, int, int);
     void print(const char*);
@@ -46,7 +46,7 @@ class EVB_Output : protected Pointers, protected EVB_Pointers
     void write_txt();
     void write_bin();
 };
-  
+
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/

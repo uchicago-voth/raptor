@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -23,7 +23,7 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-EVB_KSpace::EVB_KSpace(LAMMPS *lmp) : KSpace(lmp) 
+EVB_KSpace::EVB_KSpace(LAMMPS *lmp) : KSpace(lmp)
 {
   bEff = false;
   energy = 0.0;
@@ -32,17 +32,16 @@ EVB_KSpace::EVB_KSpace(LAMMPS *lmp) : KSpace(lmp)
   gewaldflag = 0;
   slabflag = 0;
   slab_volfactor = 1;
-  evb_engine = NULL;
+  evb_engine = nullptr;
 }
 
 /* ---------------------------------------------------------------------- */
 
 void EVB_KSpace::init()
 {
-  if(!evb_engine)
-  {
+  if (!evb_engine) {
     char errline[255];
-    sprintf(errline,"[EVB_KAPCE] Please don't use EVB KSpace in \"kspace\" command.");
+    sprintf(errline,"[EVB_KSPACE] Please don't use EVB KSpace in \"kspace\" command.");
     error->all(FLERR,errline);
   }
 }

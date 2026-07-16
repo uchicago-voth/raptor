@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -27,7 +27,7 @@
 //#define _CRACKER_GRIDCOMM
 //#include "EVB_cracker.h"
 //#undef _CRACKER_GRIDCOMM
-#include "gridcomm.h"
+#include "grid3d.h"
 #include "neighbor.h"
 #include "force.h"
 #include "pair.h"
@@ -58,8 +58,8 @@ using namespace MathConst;
 #define LARGE 10000.0
 #define EPS_HOC 1.0e-7
 
-enum{REVERSE_RHO};
-enum{FORWARD_IK,FORWARD_AD,FORWARD_IK_PERATOM,FORWARD_AD_PERATOM};
+//enum{REVERSE_RHO};
+//enum{FORWARD_IK,FORWARD_AD,FORWARD_IK_PERATOM,FORWARD_AD_PERATOM};
 
 #ifdef FFT_SINGLE
 #define ZEROF 0.0f
@@ -74,7 +74,7 @@ enum{FORWARD_IK,FORWARD_AD,FORWARD_IK_PERATOM,FORWARD_AD_PERATOM};
 
 #define KSPACE_DEFAULT    0 // Hellman-Feynman forces for Ewald
 #define PPPM_HF_FORCES    1 // Hellman-Feynman forces for PPPM
-#define PPPM_ACC_FORCES   2 // Approximate (acc) forces for PPPM. 
+#define PPPM_ACC_FORCES   2 // Approximate (acc) forces for PPPM.
 #define PPPM_POLAR_FORCES 3 // ACC forces plus an additional polarization force on complex atoms for PPPM.
 
 /* ----------------------------------------------------------------------
@@ -88,11 +88,11 @@ void EVB_PPPM::sci_compute_env(int vflag)
   TIMER_STAMP(EVB_PPPM, sci_compute_env);
 
   nlocal = atom->nlocal;
-  
+
   q = atom->q;
   x = atom->x;
   f = atom->f;
-  
+
   int* is_cplx_atom = evb_engine->complex_atom;
   int* cplx_list = evb_engine->evb_complex->cplx_list;
   int nlocal_cplx = evb_engine->evb_complex->nlocal_cplx;
@@ -100,32 +100,32 @@ void EVB_PPPM::sci_compute_env(int vflag)
 
   energy = 0.0;
   if (vflag) for (int i=0; i<6; i++) virial[i] = 0.0;
-  
+
   // Calculate the ENV density map;
   FFT_SCALAR ***save_density = density_brick;
   density_brick = env_density_brick;
   clear_density();
-  
+
   // Make the density all at once
-  make_rho(); 
-  
+  make_rho();
+
   for(int i=0; i<nlocal; ++i) if(is_cplx_atom[i]) map2density_one_subtract(i);
-  
+
   density_brick = save_density;
-  
+
   load_env_density();
 
-  cg->reverse_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                   REVERSE_RHO,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-  
+  gc->reverse_comm(Grid3d::KSPACE,this,REVERSE_RHO,1,sizeof(FFT_SCALAR),
+                   gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+
   brick2fft();
 
   poisson_energy(vflag);
-  
+
   qsqsum = evb_engine->qsqsum_sys;
   for(int i=0; i<evb_engine->ncomplex; i++) qsqsum -= evb_engine->all_complex[i]->qsqsum;
   evb_engine->qsqsum_env = qsqsum;
-  
+
   reduce_ev(vflag,true);
 
   env_energy = energy;
@@ -135,14 +135,14 @@ void EVB_PPPM::sci_compute_env(int vflag)
   if(slabflag) {
     double *q = atom->q;
     double **x = atom->x;
-    
+
     double dipole = 0.0;
     double dipole_r2 = 0.0;
     for(int i=0; i<atom->nlocal; i++) if(!is_cplx_atom[i]) {
-	dipole    += q[i] * x[i][2];
-	dipole_r2 += q[i] * x[i][2] * x[i][2];
+        dipole    += q[i] * x[i][2];
+        dipole_r2 += q[i] * x[i][2] * x[i][2];
       }
-    
+
     MPI_Allreduce(&dipole,    &dipole_env,    1, MPI_DOUBLE, MPI_SUM, world);
     MPI_Allreduce(&dipole_r2, &dipole_r2_env, 1, MPI_DOUBLE, MPI_SUM, world);
   }
@@ -153,7 +153,7 @@ void EVB_PPPM::sci_compute_env(int vflag)
     memory->create(energy_sci_compute_cplx_other, evb_engine->ncomplex, "EVB_PPPM::energy_sci_compute_cplx_other");
 
     memory->create(do_sci_compute_cplx_self, evb_engine->ncomplex*MAX_STATE, "EVB_PPPM::do_sci_compute_cplx_self");
-    memory->create(energy_sci_compute_cplx_self, evb_engine->ncomplex*MAX_STATE, "EVB_PPPM::energy_sci_compute_cplx_self");    
+    memory->create(energy_sci_compute_cplx_self, evb_engine->ncomplex*MAX_STATE, "EVB_PPPM::energy_sci_compute_cplx_self");
   }
 
   // Preparing to start iteration phase
@@ -194,9 +194,9 @@ void EVB_PPPM::sci_compute_cplx(int vflag)
       else map2density_one(i,Q_EFFECTIVE);
     }
 
-  cg->reverse_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                   REVERSE_RHO,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-  
+  gc->reverse_comm(Grid3d::KSPACE,this,REVERSE_RHO,1,sizeof(FFT_SCALAR),
+                   gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+
   brick2fft();
   poisson_energy(vflag);
   energy_cplx = energy;
@@ -206,10 +206,10 @@ void EVB_PPPM::sci_compute_cplx(int vflag)
     energy = 0.0;
     clear_density();
     for(int i=0; i<nlocal; i++) if(is_cplx_atom[i] && is_cplx_atom[i] != cplx_id) map2density_one(i,Q_EFFECTIVE);
-    
-    cg->reverse_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                   REVERSE_RHO,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-    
+
+    gc->reverse_comm(Grid3d::KSPACE,this,REVERSE_RHO,1,sizeof(FFT_SCALAR),
+                   gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+
     brick2fft();
     poisson_energy(vflag);
     energy_sci_compute_cplx_other[cplx_id-1] = energy;
@@ -217,7 +217,7 @@ void EVB_PPPM::sci_compute_cplx(int vflag)
   } else energy = energy_sci_compute_cplx_other[cplx_id-1];
 
   energy_cplx -= energy;
-  
+
   const int state = evb_engine->evb_complex->current_status;
   const int indx = (cplx_id-1)*MAX_STATE + state;
 
@@ -226,10 +226,10 @@ void EVB_PPPM::sci_compute_cplx(int vflag)
     energy = 0.0;
     clear_density();
     for(int i=0; i<nlocal; i++) if(is_cplx_atom[i] == cplx_id) map2density_one(i,Q_ATOM);
-    
-    cg->reverse_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                   REVERSE_RHO,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-    
+
+    gc->reverse_comm(Grid3d::KSPACE,this,REVERSE_RHO,1,sizeof(FFT_SCALAR),
+                   gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+
     brick2fft();
     poisson_energy(vflag);
     energy_sci_compute_cplx_self[indx] = energy;
@@ -263,28 +263,30 @@ void EVB_PPPM::sci_compute_eff(int vflag)
 
   energy = 0.0;
   if (vflag) for (int i=0; i<6; i++) virial[i] = 0.0;
-  
+
   // load full-grid density for all atoms
 
   load_env_density();
-  
+
   int nlocal_cplx = evb_engine->evb_complex->nlocal_cplx;
   int *cplx_list = evb_engine->evb_complex->cplx_list;
   int *is_cplx_atom = evb_engine->complex_atom;
 
   for(int i=0; i<nlocal; i++) if(is_cplx_atom[i]) map2density_one(i);
-  
-  cg->reverse_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                   REVERSE_RHO,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-  
+
+  gc->reverse_comm(Grid3d::KSPACE,this,1,sizeof(FFT_SCALAR),
+                   REVERSE_RHO,gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+
   brick2fft();
 
   poisson(true,vflag);
 
-  if (differentiation_flag == 1) cg->forward_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                     FORWARD_AD,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-  else cg->forward_comm(GridComm::KSPACE,this,3,sizeof(FFT_SCALAR),
-                     FORWARD_IK,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
+  if (differentiation_flag == 1)
+    gc->forward_comm(Grid3d::KSPACE,this,FORWARD_AD,1,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+  else
+    gc->forward_comm(Grid3d::KSPACE,this,FORWARD_IK,3,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
 
   int SCI_KSPACE_flag = evb_engine->SCI_KSPACE_flag;
 
@@ -309,7 +311,7 @@ void EVB_PPPM::sci_compute_eff_cplx(int vflag)
 
   energy = 0.0;
   if (vflag) for (int i=0; i<6; i++) virial[i] = 0.0;
-  
+
   int ncomplex = evb_engine->ncomplex;
   int *is_cplx_atom = evb_engine->complex_atom;
 
@@ -317,21 +319,21 @@ void EVB_PPPM::sci_compute_eff_cplx(int vflag)
   for(int i=0; i<ncomplex; i++) {
     clear_density();
     for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] && is_cplx_atom[j] != i+1) map2density_one(j);
-  
-    cg->reverse_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                   REVERSE_RHO,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-    
+
+    gc->reverse_comm(Grid3d::KSPACE,this,REVERSE_RHO,1,sizeof(FFT_SCALAR),
+                   gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+
     brick2fft();
 
     poisson(true,vflag);
 
     if (differentiation_flag == 1) {
-      cg->forward_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                     FORWARD_AD,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
+      gc->forward_comm(Grid3d::KSPACE,this,FORWARD_AD,1,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
       for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] == i+1) field2force_one_ad(j,false);
     } else {
-      cg->forward_comm(GridComm::KSPACE,this,3,sizeof(FFT_SCALAR),
-                     FORWARD_IK,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
+      gc->forward_comm(Grid3d::KSPACE,this,FORWARD_IK,3,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
       for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] == i+1) field2force_one_ik(j,false);
     }
   }
@@ -352,7 +354,7 @@ void EVB_PPPM::sci_compute_eff_cplx_mp(int vflag)
 
   energy = 0.0;
   if (vflag) for (int i=0; i<6; i++) virial[i] = 0.0;
-  
+
   int ncomplex = evb_engine->ncomplex;
   int *is_cplx_atom = evb_engine->complex_atom;
 
@@ -378,9 +380,9 @@ void EVB_PPPM::sci_compute_eff_cplx_mp(int vflag)
     clear_density();
     for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] && is_cplx_atom[j] != cplx_indx+1) map2density_one(j);
 
-    cg->reverse_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                   REVERSE_RHO,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-    
+    gc->reverse_comm(Grid3d::KSPACE,this,REVERSE_RHO,1,sizeof(FFT_SCALAR),
+                   gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+
     brick2fft();
 
     poisson_mp(true,vflag,dim,nw);
@@ -388,12 +390,12 @@ void EVB_PPPM::sci_compute_eff_cplx_mp(int vflag)
     if(dim > 0) return; // Only master of complex computes forces
 
     if (differentiation_flag == 1) {
-      cg->forward_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                     FORWARD_AD,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
+      gc->forward_comm(Grid3d::KSPACE,this,FORWARD_AD,1,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
       for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] == cplx_indx+1) field2force_one_ad(j,false);
     } else {
-      cg->forward_comm(GridComm::KSPACE,this,3,sizeof(FFT_SCALAR),
-                     FORWARD_IK,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
+      gc->forward_comm(Grid3d::KSPACE,this,FORWARD_IK,3,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
       for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] == cplx_indx+1) field2force_one_ik(j,false);
     }
 
@@ -412,9 +414,9 @@ void EVB_PPPM::sci_compute_eff_cplx_mp(int vflag)
     clear_density();
     for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] && is_cplx_atom[j] != cplx_indx+1) map2density_one(j);
 
-    cg->reverse_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                   REVERSE_RHO,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-    
+    gc->reverse_comm(Grid3d::KSPACE,this,REVERSE_RHO,1,sizeof(FFT_SCALAR),
+                   gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+
     brick2fft();
 
     poisson_mp(true,vflag,dim,nw);
@@ -422,12 +424,12 @@ void EVB_PPPM::sci_compute_eff_cplx_mp(int vflag)
     if(dim > 0) return; // Only master of complex computes forces
 
     if (differentiation_flag == 1) {
-      cg->forward_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                     FORWARD_AD,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
+      gc->forward_comm(Grid3d::KSPACE,this,FORWARD_AD,1,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
       for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] == cplx_indx+1) field2force_one_ad(j,false);
     } else {
-      cg->forward_comm(GridComm::KSPACE,this,3,sizeof(FFT_SCALAR),
-                     FORWARD_IK,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
+      gc->forward_comm(Grid3d::KSPACE,this,FORWARD_IK,3,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
       for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] == cplx_indx+1) field2force_one_ik(j,false);
     }
 
@@ -436,56 +438,56 @@ void EVB_PPPM::sci_compute_eff_cplx_mp(int vflag)
     if(universe->iworld < 3) return;
     int num_part_working = universe->nworlds - 3; // First three busy with sci_compute_eff_mp().
     int part_indx = universe->iworld - 3;
-    
+
     // Loop over complexes, calculating force due to other complexes.
     for(int i=0; i<ncomplex; i++) {
       if(i % num_part_working != part_indx) continue; // Skip if partition is not master of complex
-      
+
       clear_density();
       for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] && is_cplx_atom[j] != i+1) map2density_one(j);
-      
-      cg->reverse_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                   REVERSE_RHO,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-      
+
+      gc->reverse_comm(Grid3d::KSPACE,this,REVERSE_RHO,1,sizeof(FFT_SCALAR),
+                   gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+
       brick2fft();
-      
+
       poisson(true,vflag);
-      
+
       if (differentiation_flag == 1) {
-	     cg->forward_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                     FORWARD_AD,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-	for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] == i+1) field2force_one_ad(j,false);
+        gc->forward_comm(Grid3d::KSPACE,this,FORWARD_AD,1,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+        for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] == i+1) field2force_one_ad(j,false);
       } else {
-	cg->forward_comm(GridComm::KSPACE,this,3,sizeof(FFT_SCALAR),
-                     FORWARD_IK,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-	for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] == i+1) field2force_one_ik(j,false);
+        gc->forward_comm(Grid3d::KSPACE,this,FORWARD_IK,3,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+        for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] == i+1) field2force_one_ik(j,false);
       }
     }
 
   } else {
-    
+
     // Loop over complexes, calculating force due to other complexes.
     for(int i=0; i<ncomplex; i++) {
       if(evb_engine->lb_cplx_master[i] != universe->iworld) continue; // Skip if partition is not master of complex
-      
+
       clear_density();
       for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] && is_cplx_atom[j] != i+1) map2density_one(j);
-      
-      cg->reverse_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                   REVERSE_RHO,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-      
+
+      gc->reverse_comm(Grid3d::KSPACE,this,REVERSE_RHO,1,sizeof(FFT_SCALAR),
+                   gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+
       brick2fft();
-      
+
       poisson(true,vflag);
-      
+
       if (differentiation_flag == 1) {
-	cg->forward_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                     FORWARD_AD,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-	for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] == i+1) field2force_one_ad(j,false);
+        gc->forward_comm(Grid3d::KSPACE,this,FORWARD_AD,1,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+        for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] == i+1) field2force_one_ad(j,false);
       } else {
-	cg->forward_comm(GridComm::KSPACE,this,3,sizeof(FFT_SCALAR),
-                     FORWARD_IK,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-	for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] == i+1) field2force_one_ik(j,false);
+        gc->forward_comm(Grid3d::KSPACE,this,FORWARD_IK,3,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+        for(int j=0; j<nlocal; j++) if(is_cplx_atom[j] == i+1) field2force_one_ik(j,false);
       }
     }
 
@@ -508,20 +510,20 @@ void EVB_PPPM::sci_compute_eff_mp(int vflag)
 
   energy = 0.0;
   if (vflag) for (int i=0; i<6; i++) virial[i] = 0.0;
-  
+
   // load full-grid density for all atoms
 
   load_env_density();
-  
+
   int nlocal_cplx = evb_engine->evb_complex->nlocal_cplx;
   int *cplx_list = evb_engine->evb_complex->cplx_list;
   int *is_cplx_atom = evb_engine->complex_atom;
 
   for(int i=0; i<nlocal; i++) if(is_cplx_atom[i]) map2density_one(i);
-  
-  cg->reverse_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                   REVERSE_RHO,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-  
+
+  gc->reverse_comm(Grid3d::KSPACE,this,REVERSE_RHO,1,sizeof(FFT_SCALAR),
+                   gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+
   brick2fft();
 
   int iw = universe->iworld;
@@ -532,10 +534,10 @@ void EVB_PPPM::sci_compute_eff_mp(int vflag)
   // Only master partition calculates forces
   if(!evb_engine->mp_verlet_sci->is_master) return;
 
-  if (differentiation_flag == 1) cg->forward_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                     FORWARD_AD,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-  else cg->forward_comm(GridComm::KSPACE,this,3,sizeof(FFT_SCALAR),
-                     FORWARD_IK,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
+  if (differentiation_flag == 1) gc->forward_comm(Grid3d::KSPACE,this,1,sizeof(FFT_SCALAR),
+                     FORWARD_AD,gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+  else gc->forward_comm(Grid3d::KSPACE,this,3,sizeof(FFT_SCALAR),
+                     FORWARD_IK,gc_buf1,gc_buf2,MPI_FFT_SCALAR);
 
   int SCI_KSPACE_flag = evb_engine->SCI_KSPACE_flag;
 
@@ -549,9 +551,9 @@ void EVB_PPPM::sci_compute_eff_mp(int vflag)
 
 /* ----------------------------------------------------------------------
    Slab-geometry correction term to dampen inter-slab interactions between
-   periodically repeating slabs.  Yields good approximation to 2D Ewald if 
-   adequate empty space is left between repeating slabs (J. Chem. Phys. 
-   111, 3155).  Slabs defined here to be parallel to the xy plane. 
+   periodically repeating slabs.  Yields good approximation to 2D Ewald if
+   adequate empty space is left between repeating slabs (J. Chem. Phys.
+   111, 3155).  Slabs defined here to be parallel to the xy plane.
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::slabcorr_sci_cplx()
@@ -574,9 +576,9 @@ void EVB_PPPM::slabcorr_sci_cplx()
     dipole_cplx    += q[i] * x[i][2];
     dipole_r2_cplx += q[i] * x[i][2] * x[i][2];
   }
-  
+
   // sum local contributions to get global dipole moment
-  
+
   double dipole_all    = 0.0;
   double dipole_r2_all = 0.0;
   MPI_Allreduce(&dipole_cplx,    &dipole_all,    1, MPI_DOUBLE, MPI_SUM, world);
@@ -587,9 +589,9 @@ void EVB_PPPM::slabcorr_sci_cplx()
 
   // compute corrections
 
-  const double e_slabcorr = MY_2PI * (dipole_all * dipole_all - qsum * dipole_r2_all - 
-				      qsum * qsum * zprd * zprd / 12.0) / volume;
-  
+  const double e_slabcorr = MY_2PI * (dipole_all * dipole_all - qsum * dipole_r2_all -
+                                      qsum * qsum * zprd * zprd / 12.0) / volume;
+
   energy += qqrd2e * e_slabcorr / comm->nprocs / evb_engine->ncomplex;
 }
 
@@ -610,7 +612,7 @@ void EVB_PPPM::slabcorr_sci_eff()
   for(int i=0; i<nlocal; i++) if(is_cplx_atom[i]) dipole_cplx    += q[i] * x[i][2];
 
   // sum local contributions to get global dipole moment
-  
+
   double dipole_all    = 0.0;
   MPI_Allreduce(&dipole_cplx,    &dipole_all,    1, MPI_DOUBLE, MPI_SUM, world);
 
@@ -625,7 +627,7 @@ void EVB_PPPM::slabcorr_sci_eff()
 }
 
 /* ----------------------------------------------------------------------
-   FFT-based Poisson solver 
+   FFT-based Poisson solver
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::poisson_mp(int eflag, int vflag, int iw, int nw)
@@ -650,7 +652,7 @@ void EVB_PPPM::poisson_ik_mp(int vflag, int iw, int nw)
 
   MPI_Status status;
   MPI_Comm block = evb_engine->mp_verlet_sci->block;
-  
+
   // nw should be 1, 2, or 3
   // iw should be 0, 1, or 2
   // master_part is rank of iw==0 partition in communicator block
@@ -711,21 +713,21 @@ void EVB_PPPM::poisson_ik_mp(int vflag, int iw, int nw)
     n = 0;
     for (k = nzlo_fft; k <= nzhi_fft; k++)
       for (j = nylo_fft; j <= nyhi_fft; j++)
-	for (i = nxlo_fft; i <= nxhi_fft; i++) {
-	  work2[n] = fkx[i]*work1[n+1];
-	  work2[n+1] = -fkx[i]*work1[n];
-	  n += 2;
-	}
-    
+        for (i = nxlo_fft; i <= nxhi_fft; i++) {
+          work2[n] = fkx[i]*work1[n+1];
+          work2[n+1] = -fkx[i]*work1[n];
+          n += 2;
+        }
+
     fft2->compute(work2,work2,-1);
-    
+
     n = 0;
     for (k = nzlo_in; k <= nzhi_in; k++)
       for (j = nylo_in; j <= nyhi_in; j++)
-	for (i = nxlo_in; i <= nxhi_in; i++) {
-	  vdx_brick[k][j][i] = work2[n];
-	  n += 2;
-	}
+        for (i = nxlo_in; i <= nxhi_in; i++) {
+          vdx_brick[k][j][i] = work2[n];
+          n += 2;
+        }
   }
 
   // y direction gradient
@@ -734,15 +736,15 @@ void EVB_PPPM::poisson_ik_mp(int vflag, int iw, int nw)
     n = 0;
     for (k = nzlo_fft; k <= nzhi_fft; k++)
       for (j = nylo_fft; j <= nyhi_fft; j++)
-	for (i = nxlo_fft; i <= nxhi_fft; i++) {
-	  work2[n] = fky[j]*work1[n+1];
-	  work2[n+1] = -fky[j]*work1[n];
-	  n += 2;
-	}
-    
+        for (i = nxlo_fft; i <= nxhi_fft; i++) {
+          work2[n] = fky[j]*work1[n+1];
+          work2[n+1] = -fky[j]*work1[n];
+          n += 2;
+        }
+
     fft2->compute(work2,work2,-1);
   }
-  
+
   // Send y-gradient to master if need be
   // If one or two partitions, then master already has y-component
   // If three partitions, then partition 3 sends to master
@@ -756,24 +758,24 @@ void EVB_PPPM::poisson_ik_mp(int vflag, int iw, int nw)
     n = 0;
     for (k = nzlo_in; k <= nzhi_in; k++)
       for (j = nylo_in; j <= nyhi_in; j++)
-	for (i = nxlo_in; i <= nxhi_in; i++) {
-	  vdy_brick[k][j][i] = work2[n];
-	  n += 2;
-	}
+        for (i = nxlo_in; i <= nxhi_in; i++) {
+          vdy_brick[k][j][i] = work2[n];
+          n += 2;
+        }
   }
-  
+
   // z direction gradient
 
   if(do_z) {
     n = 0;
     for (k = nzlo_fft; k <= nzhi_fft; k++)
       for (j = nylo_fft; j <= nyhi_fft; j++)
-	for (i = nxlo_fft; i <= nxhi_fft; i++) {
-	  work2[n] = fkz[k]*work1[n+1];
-	  work2[n+1] = -fkz[k]*work1[n];
-	  n += 2;
-	}
-    
+        for (i = nxlo_fft; i <= nxhi_fft; i++) {
+          work2[n] = fkz[k]*work1[n+1];
+          work2[n+1] = -fkz[k]*work1[n];
+          n += 2;
+        }
+
     fft2->compute(work2,work2,-1);
   }
 
@@ -794,10 +796,10 @@ void EVB_PPPM::poisson_ik_mp(int vflag, int iw, int nw)
     n = 0;
     for (k = nzlo_in; k <= nzhi_in; k++)
       for (j = nylo_in; j <= nyhi_in; j++)
-	for (i = nxlo_in; i <= nxhi_in; i++) {
-	  vdz_brick[k][j][i] = work2[n];
-	  n += 2;
-	}
+        for (i = nxlo_in; i <= nxhi_in; i++) {
+          vdz_brick[k][j][i] = work2[n];
+          n += 2;
+        }
   }
 
 }

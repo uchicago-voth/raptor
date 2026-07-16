@@ -34,12 +34,12 @@ EVB_Chain::EVB_Chain(LAMMPS* lmp, EVB_Engine* engine) : Pointers(lmp), EVB_Point
 {
   shell_limit = host = target = client = reaction = path = NULL;
   distance_limit = NULL;
-  
+
   type_count = evb_type->type_count; chain_total =0;
-  
+
   index = (int*) memory->smalloc((type_count+1)*sizeof(int),"EVB_Chain:index");
   count = (int*) memory->smalloc((type_count+1)*sizeof(int),"EVB_Chain:count");
-  
+
   max_shell =0;
 }
 
@@ -76,10 +76,10 @@ void EVB_Chain::grow_chain(int n)
 
 int EVB_Chain::data_chain(char* buf, int* offset, int start, int end)
 {
-  int total=0;  
+  int total=0;
   char errline[255];
   char name_line[1000];
-  
+
   FILE * fp = evb_engine->fp_cfg_out;
   if(universe->me == 0) fprintf(fp,"\n\nStarting to process reaction chains.\n");
 
@@ -88,7 +88,7 @@ int EVB_Chain::data_chain(char* buf, int* offset, int start, int end)
       sprintf(errline,"[EVB] Expecting [segment.state_search] at: \"%s\"",buf+offset[start]);
       error->all(FLERR,errline);
   }
-  
+
   int _end;
   for(_end=start+1;_end<end; _end++) if(strstr(buf+offset[_end],"segment.end")) break;
   if(_end==end) error->all(FLERR,"[EVB] Expecting [segment.end] for [segment.state_search].");
@@ -103,7 +103,7 @@ int EVB_Chain::data_chain(char* buf, int* offset, int start, int end)
     fprintf(fp,"   EVB3 --> EVB2 refinement: bRefineStates= %i\n",evb_engine->bRefineStates);
     fprintf(fp,"   Extra off-diagonal couplings: bExtraCouplings= %i\n",evb_engine->bExtraCouplings);
   }
-  
+
   for(int i=0; i<type_count; i++)
   {
       char *pp = strstr(buf+offset[t],"state_search.start");
@@ -129,7 +129,7 @@ int EVB_Chain::data_chain(char* buf, int* offset, int start, int end)
           sprintf(errline,"[EVB] Undefined molecule_type [%s].", name_line);
           error->all(FLERR,errline);
       }
-      
+
       t++;
 
       if(universe->me == 0) fprintf(fp,"   \n\nChain definitions for host molecule: %s.\n",name_line);
@@ -156,7 +156,7 @@ int EVB_Chain::data_chain(char* buf, int* offset, int start, int end)
       count[type]=n;
       total+=n;
       grow_chain(n);
-      
+
       for(int j=index[type]; j<n+index[type]; j++)
       {
           host[j] = atoi(buf+offset[t++]);
@@ -167,11 +167,11 @@ int EVB_Chain::data_chain(char* buf, int* offset, int start, int end)
               sprintf(errline,"[EVB] Undefined molecule_type [%s].", buf+offset[t-1]);
               error->all(FLERR,errline);
           }
-          
+
           client[j] = atoi(buf+offset[t++]);
           shell_limit[j] = atoi(buf+offset[t++]);
           distance_limit[j] = atof(buf+offset[t++]);
-          distance_limit[j] = distance_limit[j]*distance_limit[j];    
+          distance_limit[j] = distance_limit[j]*distance_limit[j];
 
           reaction[j] = evb_reaction->get_reaction(buf+offset[t++]);
           if(reaction[j]==-1)
@@ -179,29 +179,29 @@ int EVB_Chain::data_chain(char* buf, int* offset, int start, int end)
               sprintf(errline,"[EVB] Undefined reaction_type [%s].", buf+offset[t-1]);
               error->all(FLERR,errline);
           }
-          
+
           path[j] = atoi(buf+offset[t++]);
-          
+
           if (shell_limit[j]>max_shell) max_shell = shell_limit[j];
-	  
-	  if(universe->me == 0) {
-	    fprintf(fp,"\n   Chain %i:\n",j-index[type]);
-	    fprintf(fp,"   +++++++++++++++++++++++++++++++\n");
-	    fprintf(fp,"   Index of atom searching for reactant: host= %i.\n",host[j]);
-	    fprintf(fp,"   Target molecule: target= %s.\n",evb_type->name[target[j]-1]);
-	    fprintf(fp,"   Index of atom in target molecule: client= %i.\n",client[j]);
-	    fprintf(fp,"   Maximum number of reaction hops attempted: shell_limit= %i.\n",shell_limit[j]);
-	    fprintf(fp,"   Maximum allowed distance to target atom: distance_limit= %f.\n",sqrt(distance_limit[j]));
-	    fprintf(fp,"   Reaction template used to update molecules: reaction= %i.\n",reaction[j]);
-	    fprintf(fp,"   Reaction path used to update particles: path= %i.\n",path[j]);
-	  }
+
+          if(universe->me == 0) {
+            fprintf(fp,"\n   Chain %i:\n",j-index[type]);
+            fprintf(fp,"   +++++++++++++++++++++++++++++++\n");
+            fprintf(fp,"   Index of atom searching for reactant: host= %i.\n",host[j]);
+            fprintf(fp,"   Target molecule: target= %s.\n",evb_type->name[target[j]-1]);
+            fprintf(fp,"   Index of atom in target molecule: client= %i.\n",client[j]);
+            fprintf(fp,"   Maximum number of reaction hops attempted: shell_limit= %i.\n",shell_limit[j]);
+            fprintf(fp,"   Maximum allowed distance to target atom: distance_limit= %f.\n",sqrt(distance_limit[j]));
+            fprintf(fp,"   Reaction template used to update molecules: reaction= %i.\n",reaction[j]);
+            fprintf(fp,"   Reaction path used to update particles: path= %i.\n",path[j]);
+          }
       }
 
       if(universe->me == 0) fprintf(fp,"\n   Processing chain definitions complete.\n");
-  
+
       t++;
   }
-  
+
   /*****************************************
   fprintf(screen,"\n");
   for(int i=0;i<chain_total; i++)
@@ -215,7 +215,7 @@ int EVB_Chain::data_chain(char* buf, int* offset, int start, int end)
       error->all(FLERR,errline);
   }
   t++;
-  
+
   if(universe->me == 0) {
     fprintf(fp,"\nProcessing ALL chain definitions complete.\n");
     fprintf(fp,"\n==================================\n");

@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -15,7 +15,7 @@
    Contributing authors: Roy Pollock (LLNL), Paul Crozier (SNL)
 
    Splitted for MS-EVB by: Tianying, Chris and Yuxing
-------------------------------------------------------------------------- */ 
+------------------------------------------------------------------------- */
 
 #include "lmptype.h"
 #include "mpi.h"
@@ -25,10 +25,7 @@
 #include "math.h"
 #include "atom.h"
 #include "comm.h"
-#include "gridcomm.h"
-//#define _CRACKER_GRIDCOMM
-//#include "EVB_cracker.h"
-//#undef _CRACKER_GRIDCOMM
+#include "grid3d.h"
 #include "neighbor.h"
 #include "force.h"
 #include "pair.h"
@@ -61,8 +58,8 @@ using namespace MathSpecial;
 #define LARGE 10000.0
 #define EPS_HOC 1.0e-7
 
-enum{REVERSE_RHO};
-enum{FORWARD_IK,FORWARD_AD,FORWARD_IK_PERATOM,FORWARD_AD_PERATOM};
+//enum{REVERSE_RHO};
+//enum{FORWARD_IK,FORWARD_AD,FORWARD_IK_PERATOM,FORWARD_AD_PERATOM};
 
 #ifdef FFT_SINGLE
 #define ZEROF 0.0f
@@ -77,706 +74,10 @@ enum{FORWARD_IK,FORWARD_AD,FORWARD_IK_PERATOM,FORWARD_AD_PERATOM};
 
 #define KSPACE_DEFAULT    0 // Hellman-Feynman forces for Ewald
 #define PPPM_HF_FORCES    1 // Hellman-Feynman forces for PPPM
-#define PPPM_ACC_FORCES   2 // Approximate (acc) forces for PPPM. 
+#define PPPM_ACC_FORCES   2 // Approximate (acc) forces for PPPM.
 #define PPPM_POLAR_FORCES 3 // ACC forces plus an additional polarization force on complex atoms for PPPM.
 
-/*************************************************************************/
-/*************************************************************************/
-/*************************************************************************/
-/*************************************************************************/
-/*************************************************************************/
-
-void EVB_PPPM::evb_setup()
-{
-  nlocal = atom->nlocal;
-
-  // extend size of per-atom arrays if necessary
-
-  if (nlocal > nmax) {
-    memory->destroy(part2grid);
-    memory->destroy(part2grid_dr);
-    nmax = atom->nmax;
-    memory->create(part2grid,nmax,3,"EVB_PPPM:part2grid");
-    memory->create(part2grid_dr,nmax,3,"EVB_PPPM:part2grid_dr");
-  }
-}
-
-/*************************************************************************/
-
-void EVB_PPPM::clear_density()
-{
-  FFT_SCALAR *vec = &density_brick[nzlo_out][nylo_out][nxlo_out];
-  memset(vec, ZEROF, sizeof(FFT_SCALAR)*ngrid);
-}
-
-/*************************************************************************/
-
-void EVB_PPPM::load_env_density()
-{
-  memcpy(&density_brick[nzlo_out][nylo_out][nxlo_out],
-         &env_density_brick[nzlo_out][nylo_out][nxlo_out],
-		 sizeof(FFT_SCALAR)*ngrid);
-}
-
-/*************************************************************************/
-
-void EVB_PPPM::map2density_one(int id)
-{
-  double *q = atom->q;
-
-  nx = part2grid[id][0];
-  ny = part2grid[id][1];
-  nz = part2grid[id][2];
-  
-  // (dx,dy,dz) = distance to "lower left" grid pt
-  
-  compute_rho1d(part2grid_dr[id][0], part2grid_dr[id][1], part2grid_dr[id][2]);
-  
-  // (mx,my,mz) = global coords of moving stencil pt   
-
-  z0 = delvolinv * q[id];
-  for (int n = nlower; n <= nupper; n++) {
-    mz = n+nz;
-    y0 = z0*rho1d[2][n];
-    
-    for (int m = nlower; m <= nupper; m++) {
-      my = m+ny;
-      x0 = y0*rho1d[1][m];
-      
-      for (int l = nlower; l <= nupper; l++) {
-	mx = l+nx;
-	density_brick[mz][my][mx] += x0*rho1d[0][l];
-      } // Loop mx
-    } // Loop my
-  } // Loop mz
-}
-
-/*************************************************************************/
-
-void EVB_PPPM::map2density_one(int id, int WHICH)
-{
-  double * q;
-  if(WHICH == Q_ATOM) q = atom->q;
-  else if(WHICH == Q_EFFECTIVE) q = evb_engine->evb_effpair->q;
-  
-  nx = part2grid[id][0];
-  ny = part2grid[id][1];
-  nz = part2grid[id][2];
-  
-  // (dx,dy,dz) = distance to "lower left" grid pt
-  
-  compute_rho1d(part2grid_dr[id][0], part2grid_dr[id][1], part2grid_dr[id][2]);
-  
-  // (mx,my,mz) = global coords of moving stencil pt   
-
-  z0 = delvolinv * q[id];
-  for (int n = nlower; n <= nupper; n++) {
-    mz = n+nz;
-    y0 = z0*rho1d[2][n];
-    
-    for (int m = nlower; m <= nupper; m++) {
-      my = m+ny;
-      x0 = y0*rho1d[1][m];
-      
-      for (int l = nlower; l <= nupper; l++) {
-	mx = l+nx;
-	density_brick[mz][my][mx] += x0*rho1d[0][l];
-      } // Loop mx
-    } // Loop my
-  } // Loop mz
-}
-
-/*************************************************************************/
-
-void EVB_PPPM::map2density_one_subtract(int id)
-{
-  double *q = atom->q;
-
-  // Subtracts the contrinution for a given id
-  nx = part2grid[id][0];
-  ny = part2grid[id][1];
-  nz = part2grid[id][2];
-  
-  // (dx,dy,dz) = distance to "lower left" grid pt
-  
-  compute_rho1d(part2grid_dr[id][0], part2grid_dr[id][1], part2grid_dr[id][2]);
-  
-  // (mx,my,mz) = global coords of moving stencil pt
-  
-  const FFT_SCALAR z0 = delvolinv * q[id];
-  for (int n = nlower; n <= nupper; n++) {
-    const FFT_SCALAR y0 = z0*rho1d[2][n];
-    for (int m = nlower; m <= nupper; m++) {
-      const FFT_SCALAR x0 = y0*rho1d[1][m];
-      for (int l = nlower; l <= nupper; l++) {
-	density_brick[n+nz][m+ny][l+nx] -= x0*rho1d[0][l];
-      } // Loop mx
-    } // Loop my
-  } // Loop mz
-}
-
-/*************************************************************************/
-
-void EVB_PPPM::poisson_energy(int vflag)
-{
-  int n;
-  double eng;
-
-  // transform charge density (r -> k) 
-
-  n = 0;
-  for (int i=0; i<nfft; i++) {
-    work1[n++] = density_fft[i];
-    work1[n++] = ZEROF;
-    
-  }
-  
-  fft1->compute(work1,work1,1);
-  
-  // if requested, compute energy and virial contribution
-
-  double scaleinv = 1.0/(nx_pppm*ny_pppm*nz_pppm);
-  double s2 = scaleinv*scaleinv;
-
-  n = 0;
-  if (vflag) {
-    for (int i=0; i<nfft; ++i) {
-      eng = s2 * greensfn[i] * (work1[n]*work1[n] + work1[n+1]*work1[n+1]);
-      for (int j=0; j<6; ++j) virial[j] += eng*vg[i][j];
-      energy += eng;
-      n += 2;
-    }
-  } else {
-    for (int i=0; i<nfft; ++i) {
-      eng = greensfn[i] * (work1[n]*work1[n] + work1[n+1]*work1[n+1]);
-      energy += eng;
-      n += 2;
-    }
-    energy *= s2;
-  }
-
-}
-
-/*************************************************************************/
-
-void EVB_PPPM::field2force_one_ik(int id, bool Aflag)
-{  
-  nx = part2grid[id][0];
-  ny = part2grid[id][1];
-  nz = part2grid[id][2];
-  
-  compute_rho1d(part2grid_dr[id][0],part2grid_dr[id][1],part2grid_dr[id][2]);
-  
-  ekx = eky = ekz = ZEROF;
-  for (int n = nlower; n <= nupper; n++) {
-    mz = n+nz;
-    z0 = rho1d[2][n];
-    for (int m = nlower; m <= nupper; m++) {
-      my = m+ny;
-      y0 = z0*rho1d[1][m];
-      for (int l = nlower; l <= nupper; l++) {
-	mx = l+nx;
-	x0 = y0*rho1d[0][l];
-	ekx -= x0*vdx_brick[mz][my][mx];;
-	eky -= x0*vdy_brick[mz][my][mx];;
-	ekz -= x0*vdz_brick[mz][my][mx];;
-      }
-    }
-  }
-  
-  // convert E-field to force
-  double qfactor = qqrd2e * scale * q[id];
-  if(Aflag) qfactor *= A_Rq;
-  
-  f[id][0] += qfactor * ekx;
-  f[id][1] += qfactor * eky;
-  if (slabflag != 2) f[id][2] += qfactor * ekz;
-}
-
-/*************************************************************************/
-
-void EVB_PPPM::field2force_one_ad(int id, bool Aflag)
-{
-  double s1, s2, s3;
-  double sf = 0.0;
-  double *prd;
-
-  if(triclinic == 0) prd = domain->prd;
-  else prd = domain->prd_lamda;
-  
-  const double hx_inv = nx_pppm / prd[0];
-  const double hy_inv = ny_pppm / prd[1];
-  const double hz_inv = nz_pppm / prd[2];
-
-  nx = part2grid[id][0];
-  ny = part2grid[id][1];
-  nz = part2grid[id][2];
-  
-  compute_rho1d(part2grid_dr[id][0],part2grid_dr[id][1],part2grid_dr[id][2]);
-  compute_drho1d(part2grid_dr[id][0],part2grid_dr[id][1],part2grid_dr[id][2]);
-  
-  ekx = eky = ekz = ZEROF;
-  for (int n = nlower; n <= nupper; n++) {
-    mz = n+nz;
-    for (int m = nlower; m <= nupper; m++) {
-      my = m+ny;
-      for (int l = nlower; l <= nupper; l++) {
-	mx = l+nx;
-	ekx += drho1d[0][l] *  rho1d[1][m] *  rho1d[2][n] * u_brick[mz][my][mx];
-	eky +=  rho1d[0][l] * drho1d[1][m] *  rho1d[2][n] * u_brick[mz][my][mx];
-	ekz +=  rho1d[0][l] *  rho1d[1][m] * drho1d[2][n] * u_brick[mz][my][mx];
-      }
-    }
-  }
-  ekx *= hx_inv;
-  eky *= hy_inv;
-  ekz *= hz_inv;
-  
-  // convert E-field to force and subtract self forces
-  double qfactor = qqrd2e * scale;
-  if(Aflag) qfactor *= A_Rq;
-
-  s1 = x[id][0] * hx_inv;
-  s2 = x[id][1] * hy_inv;
-  s3 = x[id][2] * hz_inv;
-  sf = sf_coeff[0] * sin(2 * MY_PI * s1);
-  sf += sf_coeff[1] * sin(4 * MY_PI * s1);
-  sf *= 2 * q[id] * q[id];
-  f[id][0] += qfactor * (ekx * q[id] - sf);
-
-  sf = sf_coeff[2] * sin(2 * MY_PI * s2);
-  sf += sf_coeff[3] * sin(4 * MY_PI * s2);
-  sf *= 2 * q[id] * q[id];
-  f[id][1] += qfactor * (eky * q[id] - sf);
-
-  if (slabflag != 2) {
-    sf = sf_coeff[4] * sin(2 * MY_PI * s3);
-    sf += sf_coeff[5] * sin(4 * MY_PI * s3);
-    sf *= 2 * q[id] * q[id];
-    f[id][2] += qfactor * (ekz * q[id] - sf);
-  }
-}
-
-/*************************************************************************/
-
-void EVB_PPPM::reduce_ev(int vflag, bool Aflag)
-{
-  energy *= 0.5*volume;
-  if(comm->me==0) energy -= g_ewald*qsqsum/MY_PIS + MY_PI2*qsum*qsum / (g_ewald*g_ewald*volume);
-  
-  energy *= qqrd2e;
-  
-  // sum virial across procs
-
-  if (vflag) {
-    double virial_all[6];
-    MPI_Allreduce(virial,virial_all,6,MPI_DOUBLE,MPI_SUM,world);
-    double pre_factor = 0.5*qqrd2e*volume;
-    if(Aflag) pre_factor *= A_Rq;
-    for (int i=0; i<6; i++) virial[i] = pre_factor*virial_all[i];
-  }
-}
-
-/*************************************************************************/
-
-void EVB_PPPM::compute_env(int vflag)
-{
-  TIMER_STAMP(EVB_PPPM, compute_env);
-  
-  nlocal = atom->nlocal;
-  
-  q = atom->q;
-  x = atom->x;
-  f = atom->f;
-  
-  int* is_cplx_atom = evb_engine->complex_atom;
-  int* cplx_list = evb_engine->evb_complex->cplx_list;
-  int nlocal_cplx = evb_engine->evb_complex->nlocal_cplx;
-  int has_cplx_atom = evb_engine->has_complex_atom;
-
-  energy = 0.0;
-  if (vflag) for (int i=0; i<6; i++) virial[i] = 0.0;
-
-  // convert atoms from box to lamda coords
-
-  if (triclinic == 0) boxlo = domain->boxlo;
-  else {
-    boxlo = domain->boxlo_lamda;
-    domain->x2lamda(atom->nlocal);
-  }
-  
-  // Calculate the ENV density map;
-  FFT_SCALAR ***save_density = density_brick;
-  density_brick = env_density_brick;
-  clear_density();  
-
-  // Make the density all at once
-  make_rho(); 
-  
-  if (has_cplx_atom) for(int i=0; i<nlocal_cplx; ++i) map2density_one_subtract(cplx_list[i]);
-
-  
-  density_brick = save_density;  
-  load_env_density();
-  
-  cg->reverse_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                   REVERSE_RHO,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-  
-  brick2fft();
-
-  poisson_energy(vflag);
-  
-  qsqsum = evb_engine->qsqsum_env = evb_engine->qsqsum_sys-evb_engine->evb_complex->qsqsum;
-  reduce_ev(vflag,true);
-  
-  env_energy = energy;
-  if (vflag) for (int i = 0; i < 6; i++) virial[i] = 0.0;
-
-  // Environment contribution to dipole for slab correction
-  if(slabflag) {
-    double *q = atom->q;
-    double **x = atom->x;
-    
-    double dipole = 0.0;
-    double dipole_r2 = 0.0;
-    for(int i=0; i<atom->nlocal; i++) if(!is_cplx_atom[i]) {
-	dipole    += q[i] * x[i][2];
-	dipole_r2 += q[i] * x[i][2] * x[i][2];
-      }
-    
-    MPI_Allreduce(&dipole,    &dipole_env,    1, MPI_DOUBLE, MPI_SUM, world);
-    MPI_Allreduce(&dipole_r2, &dipole_r2_env, 1, MPI_DOUBLE, MPI_SUM, world);
-  }
-  
-  if (triclinic) domain->lamda2x(atom->nlocal);
-  
-  TIMER_CLICK(EVB_PPPM, compute_env); 
-}
-
-/*************************************************************************/
-
-void EVB_PPPM::compute_env_density(int vflag)
-{
-  TIMER_STAMP(EVB_PPPM, compute_env);
-  
-  nlocal = atom->nlocal;
-
-  q = atom->q;
-  x = atom->x;
-  
-  int* is_cplx_atom = evb_engine->complex_atom;
-  int* cplx_list = evb_engine->evb_complex->cplx_list;
-  int nlocal_cplx = evb_engine->evb_complex->nlocal_cplx;
-  int has_cplx_atom = evb_engine->has_complex_atom;
-  
-  energy = 0.0;
-  if (vflag) for (int i=0; i<6; i++) virial[i] = 0.0;
-
-  // convert atoms from box to lamda coords
-
-  if (triclinic == 0) boxlo = domain->boxlo;
-  else {
-    boxlo = domain->boxlo_lamda;
-    domain->x2lamda(atom->nlocal);
-  }
-  // Calculate the ENV density map;
-  FFT_SCALAR ***save_density = density_brick;
-  density_brick = env_density_brick;
-  clear_density();
-
-  // Make the density all at once
-  make_rho(); 
-  
-  if (has_cplx_atom) for(int i=0; i<nlocal_cplx; ++i) map2density_one_subtract(cplx_list[i]);
-  
-  density_brick = save_density;
-  load_env_density();
-
-  qsqsum = evb_engine->qsqsum_env = 0.0;
-  env_energy = energy;
-
-  // Environment contribution to dipole for slab correction
-  if(slabflag) {
-    double *q = atom->q;
-    double **x = atom->x;
-    
-    double dipole = 0.0;
-    double dipole_r2 = 0.0;
-    for(int i=0; i<atom->nlocal; i++) if(!is_cplx_atom[i]) {
-	dipole    += q[i] * x[i][2];
-	dipole_r2 += q[i] * x[i][2] * x[i][2];
-      }
-    
-    MPI_Allreduce(&dipole,    &dipole_env,    1, MPI_DOUBLE, MPI_SUM, world);
-    MPI_Allreduce(&dipole_r2, &dipole_r2_env, 1, MPI_DOUBLE, MPI_SUM, world);
-  }
-  
-  if (triclinic) domain->lamda2x(atom->nlocal);
-  TIMER_CLICK(EVB_PPPM, compute_env); 
-}
-
-/*************************************************************************/
-
-void EVB_PPPM::compute_cplx(int vflag)
-{
-  TIMER_STAMP(EVB_PPPM, compute_cplx);
-
-  f = atom->f;
-
-  energy = 0.0;
-  if (vflag) for (int i=0; i<6; i++) virial[i] = 0.0;
-  
-  // convert atoms from box to lamda coords
-
-  if (triclinic == 0) boxlo = domain->boxlo;
-  else {
-    boxlo = domain->boxlo_lamda;
-    domain->x2lamda(atom->nlocal);
-  }
-  
-  load_env_density();
-  
-  int nlocal_cplx = evb_engine->evb_complex->nlocal_cplx;
-  int* cplx_list = evb_engine->evb_complex->cplx_list;
-  for(int i=0; i<nlocal_cplx; i++) map2density_one(cplx_list[i]);
-  
-  cg->reverse_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                   REVERSE_RHO,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-  brick2fft();
- 
-  // Don't calculate forces here in SCI simulations during compute(), only initialize().
-  if(evb_engine->ncomplex == 1) {
-    poisson(true,vflag);
-
-    if (differentiation_flag == 1) cg->forward_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                     FORWARD_AD,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-    else cg->forward_comm(GridComm::KSPACE,this,3,sizeof(FFT_SCALAR),
-                     FORWARD_IK,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-    fieldforce();
-
-  } else if( (evb_engine->SCI_KSPACE_flag == KSPACE_DEFAULT || evb_engine->SCI_KSPACE_flag == PPPM_HF_FORCES) &&
-	     evb_engine->engine_indicator == ENGINE_INDICATOR_INITIALIZE) {
-    poisson(true,vflag);
-    
-    if (differentiation_flag == 1) {
-      cg->forward_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                     FORWARD_AD,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-      for(int i=0; i<nlocal_cplx; i++) field2force_one_ad(cplx_list[i],false);
-    } else {
-      cg->forward_comm(GridComm::KSPACE,this,3,sizeof(FFT_SCALAR),
-                     FORWARD_IK,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-      for(int i=0; i<nlocal_cplx; i++) field2force_one_ik(cplx_list[i],false);
-    }
-
-  } else poisson_energy(vflag);
-
-  qsqsum = evb_engine->qsqsum_env + evb_engine->evb_complex->qsqsum;
-  reduce_ev(vflag,true);
-
-  // Don't calculate slab correction here in SCI simulations
-  if(slabflag && evb_engine->ncomplex == 1) slabcorr_cplx();
-
-  energy -= env_energy;
-  
-  if (triclinic) domain->lamda2x(atom->nlocal);
-  TIMER_CLICK(EVB_PPPM, compute_cplx);
-}
-
-/*************************************************************************/
-
-void EVB_PPPM::compute_cplx_eff(int vflag)
-{
-  TIMER_STAMP(EVB_PPPM, compute_cplx_eff);
-
-  energy = 0.0;
-  if (vflag) for (int i=0; i<6; i++) virial[i] = 0.0;
-  f = atom->f;
-  
-  // convert atoms from box to lamda coords
-
-  if (triclinic == 0) boxlo = domain->boxlo;
-  else {
-    boxlo = domain->boxlo_lamda;
-    domain->x2lamda(atom->nlocal);
-  }
-  
-  int *is_cplx_atom = evb_engine->complex_atom;
-  int cplx_id = evb_engine->evb_complex->id;  
-
-  int nlocal_cplx = evb_engine->evb_complex->nlocal_cplx;
-  int* cplx_list = evb_engine->evb_complex->cplx_list;
-
-  clear_density();
-  for(int i=0; i<nlocal; i++) {
-      if(is_cplx_atom[i] == cplx_id) map2density_one(i,Q_ATOM);
-      else map2density_one(i,Q_EFFECTIVE);
-    }
-  
-  cg->reverse_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                   REVERSE_RHO,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-  brick2fft();
- 
-  poisson(true,vflag);
-
-  // Only accumulate forces on complex atoms
-  if (differentiation_flag == 1) {
-    cg->forward_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                     FORWARD_AD,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-    for(int i=0; i<nlocal_cplx; i++) field2force_one_ad(cplx_list[i],false);
-  } else {
-    cg->forward_comm(GridComm::KSPACE,this,3,sizeof(FFT_SCALAR),
-                     FORWARD_IK,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-    for(int i=0; i<nlocal_cplx; i++) field2force_one_ik(cplx_list[i],false);
-  }
-
- 
-  if (triclinic) domain->lamda2x(atom->nlocal);
-  TIMER_CLICK(EVB_PPPM, compute_cplx_eff);
-}
-
-/*************************************************************************/
-
-void EVB_PPPM::compute_exch(int vflag)
-{
-  TIMER_STAMP(EVB_PPPM, compute_exch);  
-
-  double qsum_save = qsum;
- 
-  f = atom->f;
-  double save_energy = energy;
-  double save_virial[6];
-  memcpy(save_virial,virial,sizeof(double)*6);
-  
-  /***************************************************/
-  /******* Overall                             *******/
-  /***************************************************/
-  
-  energy = 0.0;
-  if (vflag) for (int i=0; i<6; i++) virial[i] = 0.0;
-  
-  // convert atoms from box to lamda coords
-
-  if (triclinic == 0) boxlo = domain->boxlo;
-  else {
-    boxlo = domain->boxlo_lamda;
-    domain->x2lamda(atom->nlocal);
-  }
-  
-  load_env_density();
-
-  int* is_cplx_atom = evb_engine->complex_atom;
-  int nlocal_cplx = evb_engine->evb_complex->nlocal_cplx;
-  int* cplx_list = evb_engine->evb_complex->cplx_list;
-  for(int i=0; i<nlocal_cplx; i++) map2density_one(cplx_list[i]);
-  
-  cg->reverse_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                   REVERSE_RHO,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-  brick2fft();
-  poisson_energy(vflag);
-
-  if (differentiation_flag == 1) cg->forward_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                     FORWARD_AD,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-  else cg->forward_comm(GridComm::KSPACE,this,3,sizeof(FFT_SCALAR),
-                     FORWARD_IK,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-  
-  qsum = qsqsum = 0.0;
-  reduce_ev(vflag,true);
-  
-  off_diag_energy = energy;
-  if (vflag) memcpy(off_diag_virial,virial,sizeof(double)*6);
- 
-  /***************************************************/
-  /******* Mesh(Exch_chg)->Point(Non_exch_chg) *******/
-  /***************************************************/
-  
-  energy = 0.0;
-  if (vflag) for (int i=0; i<6; i++) virial[i] = 0.0;
-  clear_density();
-
-  for (int i=0; i<nlocal; i++) if(is_exch_chg[i]) map2density_one(i);
-  
-  cg->reverse_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                   REVERSE_RHO,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-  brick2fft();
-  poisson(true, vflag);
-
-  if (differentiation_flag == 1) {
-    cg->forward_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                     FORWARD_AD,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-    for (int i=0; i<nlocal; i++) if(!is_exch_chg[i]) field2force_one_ad(i,true);
-  } else {
-    cg->forward_comm(GridComm::KSPACE,this,3,sizeof(FFT_SCALAR),
-                     FORWARD_IK,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-    for (int i=0; i<nlocal; i++) if(!is_exch_chg[i]) field2force_one_ik(i,true);
-  }
-  
-  reduce_ev(vflag,true);
-
-  off_diag_energy -= energy;
-  if (vflag) for(int i=0; i<6; i++) off_diag_virial[i]-=virial[i];
-
-  /***************************************************/
-  /******* Mesh(Non_exch_chg)->Point(Exch_chg) *******/
-  /***************************************************/
-  
-  energy = 0.0;
-  if (vflag) for (int i=0; i<6; i++) virial[i] = 0.0;
-  
-  load_env_density();
-  
-  for (int i=0; i<nlocal; i++) if(is_cplx_atom[i] && !is_exch_chg[i]) map2density_one(i);
-  
-  cg->reverse_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                   REVERSE_RHO,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-  brick2fft();
-  poisson(true, vflag);
-
-  if (differentiation_flag == 1) {
-    cg->forward_comm(GridComm::KSPACE,this,1,sizeof(FFT_SCALAR),
-                     FORWARD_AD,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-    for (int i=0; i<nlocal; i++) if(is_exch_chg[i]) field2force_one_ad(i,true);
-  } else {
-    cg->forward_comm(GridComm::KSPACE,this,3,sizeof(FFT_SCALAR),
-                     FORWARD_IK,cg_buf1,cg_buf2,MPI_FFT_SCALAR);
-    for (int i=0; i<nlocal; i++) if(is_exch_chg[i]) field2force_one_ik(i,true);
-  }
-  
-  reduce_ev(vflag,true);
-  
-  off_diag_energy -= energy;
-  if (vflag) for(int i=0; i<6; i++) off_diag_virial[i]-=virial[i];
-
-  /***************************************************************/
-  /***************************************************************/
-  
-  // Don't calculate slab correction here in SCI simulations
-  if(slabflag && evb_engine->ncomplex == 1) slabcorr_exch();
-
-  double energy_all;
-  MPI_Allreduce(&off_diag_energy,&energy_all,1,MPI_DOUBLE,MPI_SUM,world);
-  off_diag_energy = energy_all;
-  
-  energy = save_energy;
-  memcpy(virial, save_virial,sizeof(double)*6);
-  
-  qsum = qsum_save;
-  
-  if (triclinic) domain->lamda2x(atom->nlocal);
-  TIMER_CLICK(EVB_PPPM, compute_exch); 
-}
-
-/*************************************************************************/
-
-void EVB_PPPM::compute_eff(int vflag)
-{
-
-}
-
-/*************************************************************************/
-/*************************************************************************/
-/*************************************************************************/
-/*************************************************************************/
-/*************************************************************************/
+//#define EVB_PPPM_DEBUG
 
 /* ---------------------------------------------------------------------- */
 
@@ -785,10 +86,10 @@ EVB_PPPM::EVB_PPPM(LAMMPS *lmp) : EVB_KSpace(lmp)
   pppmflag = 1;
   group_group_enable = 0;
   triclinic = domain->triclinic;
-  
+
   // AWGL : save pointer
   lmp_pointer = lmp;
-  
+
   nfactors = 3;
   factors = new int[nfactors];
   factors[0] = 2;
@@ -798,27 +99,28 @@ EVB_PPPM::EVB_PPPM(LAMMPS *lmp) : EVB_KSpace(lmp)
   MPI_Comm_rank(world,&me);
   MPI_Comm_size(world,&nprocs);
 
-  density_brick = vdx_brick = vdy_brick = vdz_brick = NULL;
-  density_fft = NULL;
-  u_brick = NULL;
-  greensfn = NULL;
-  work1 = work2 = NULL;
-  vg = NULL;
-  fkx = fky = fkz = NULL;
+  density_brick = vdx_brick = vdy_brick = vdz_brick = nullptr;
+  density_fft = nullptr;
+  u_brick = nullptr;
+  greensfn = nullptr;
+  work1 = work2 = nullptr;
+  vg = nullptr;
+  fkx = fky = fkz = nullptr;
 
-  sf_precoeff1 = sf_precoeff2 = sf_precoeff3 = 
-    sf_precoeff4 = sf_precoeff5 = sf_precoeff6 = NULL;
+  sf_precoeff1 = sf_precoeff2 = sf_precoeff3 =
+    sf_precoeff4 = sf_precoeff5 = sf_precoeff6 = nullptr;
 
-  gf_b = NULL;
-  rho1d = rho_coeff = drho1d = drho_coeff = NULL;
+  gf_b = nullptr;
+  rho1d = rho_coeff = drho1d = drho_coeff = nullptr;
 
-  fft1 = fft2 = NULL;
-  remap = NULL;
-  cg = NULL;
+  fft1 = fft2 = nullptr;
+  remap = nullptr;
+  gc = nullptr;
+  gc_buf1 = gc_buf2 = nullptr;
 
   nmax = 0;
-  part2grid = NULL;
-  
+  part2grid = nullptr;
+
   // define acons coefficients for estimation of kspace errors
   // see JCP 109, pg 7698 for derivation of coefficients
   // higher order coefficients may be computed if needed
@@ -855,46 +157,40 @@ EVB_PPPM::EVB_PPPM(LAMMPS *lmp) : EVB_KSpace(lmp)
 
   /***************************************/
   /***************************************/
-  env_density_brick = NULL;
-  part2grid_dr = NULL;
+  env_density_brick = nullptr;
+  part2grid_dr = nullptr;
   /***************************************/
   /***************************************/
 
-  // GridComm
-  cg_buf1 = cg_buf2 = NULL;
-  
-  do_sci_compute_cplx_other = NULL;
-  energy_sci_compute_cplx_other = NULL;
+  do_sci_compute_cplx_other = nullptr;
+  energy_sci_compute_cplx_other = nullptr;
 
-  do_sci_compute_cplx_self = NULL;
-  energy_sci_compute_cplx_self = NULL;
-}
+  do_sci_compute_cplx_self = nullptr;
+  energy_sci_compute_cplx_self = nullptr;
 
-void EVB_PPPM::settings(int narg, char **arg)
-{
-  if (narg < 1) error->all(FLERR,"Illegal kspace_style pppm command");
-  accuracy_relative = fabs(utils::numeric(FLERR,arg[0],false,lmp));
+  pivot_state = 1;
 }
 
 /* ----------------------------------------------------------------------
-   free all memory 
+   free all memory
 ------------------------------------------------------------------------- */
 
 EVB_PPPM::~EVB_PPPM()
 {
   delete [] factors;
   deallocate();
+
   memory->destroy(part2grid);
   memory->destroy(acons);
-  
+
   /***************************************/
   /***************************************/
   memory->destroy(part2grid_dr);
   /***************************************/
   /***************************************/
-
-  memory->destroy(cg_buf1);
-  memory->destroy(cg_buf2);
+  delete gc;
+  memory->destroy(gc_buf1);
+  memory->destroy(gc_buf2);
 
   memory->destroy(do_sci_compute_cplx_other);
   memory->destroy(energy_sci_compute_cplx_other);
@@ -904,12 +200,12 @@ EVB_PPPM::~EVB_PPPM()
 }
 
 /* ----------------------------------------------------------------------
-   called once before run 
+   called once before run
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::init()
 {
-  EVB_KSpace::init();  
+  EVB_KSpace::init();
 
   if (me == 0) {
     if (screen) fprintf(screen,"EVB_PPPM initialization ...\n");
@@ -922,14 +218,14 @@ void EVB_PPPM::init()
 
   if (triclinic != domain->triclinic)
     error->all(FLERR,"Must redefine kspace_style after changing to triclinic box");
-  
+
   if (domain->triclinic && differentiation_flag == 1)
     error->all(FLERR,"Cannot (yet) use PPPM with triclinic box "
                "and kspace_modify diff ad");
   if (domain->triclinic && slabflag)
     error->all(FLERR,"Cannot (yet) use PPPM with triclinic box and "
                "slab correction");
-  
+
   if (domain->dimension == 2) error->all(FLERR,"Cannot use EVB_PPPM with 2d simulation");
 
   if (!atom->q_flag) error->all(FLERR,"Kspace style requires atom attribute q");
@@ -937,8 +233,8 @@ void EVB_PPPM::init()
   if (slabflag == 0 && domain->nonperiodic > 0)
     error->all(FLERR,"Cannot use nonperiodic boundaries with EVB_PPPM");
   if (slabflag == 1) {
-    if (domain->xperiodic != 1 || domain->yperiodic != 1 || 
-	domain->boundary[2][0] != 1 || domain->boundary[2][1] != 1)
+    if (domain->xperiodic != 1 || domain->yperiodic != 1 ||
+        domain->boundary[2][0] != 1 || domain->boundary[2][1] != 1)
       error->all(FLERR,"Incorrect boundaries with slab EVB_PPPM");
   }
 
@@ -952,10 +248,10 @@ void EVB_PPPM::init()
     sprintf(str,"EVB_PPPM order cannot be < 2 or > than %d",MAXORDER);
     error->all(FLERR,str);
   }
-  
+
   // compute two charge force
   two_charge();
-  
+
   // extract short-range Coulombic cutoff from pair style
 
   triclinic = domain->triclinic;
@@ -963,11 +259,13 @@ void EVB_PPPM::init()
 
   pair_check();
 
+  double* q = atom->q;
+  int nlocal = atom->nlocal;
   qqrd2e = force->qqrd2e;
-  
+
   int itmp;
   double *p_cutoff = (double *) force->pair->extract((char*)"cut_coul",itmp);
-  if (p_cutoff == NULL)
+  if (p_cutoff == nullptr)
     error->all(FLERR,"KSpace style is incompatible with Pair style");
   cutoff = *p_cutoff;
 
@@ -990,13 +288,13 @@ void EVB_PPPM::init()
     int typeA = *p_typeA;
     typeB = *p_typeB;
 
-    if (force->angle == NULL || force->bond == NULL)
+    if (force->angle == nullptr || force->bond == nullptr)
       error->all(FLERR,"Bond and angle potentials must be defined for TIP4P");
     if (typeA < 1 || typeA > atom->nangletypes ||
-	force->angle->setflag[typeA] == 0)
+        force->angle->setflag[typeA] == 0)
       error->all(FLERR,"Bad TIP4P angle type for PPPM/TIP4P");
     if (typeB < 1 || typeB > atom->nbondtypes ||
-	force->bond->setflag[typeB] == 0)
+        force->bond->setflag[typeB] == 0)
       error->all(FLERR,"Bad TIP4P bond type for PPPM/TIP4P");
     double theta = force->angle->equilibrium_angle(typeA);
     double blen = force->bond->equilibrium_distance(typeB);
@@ -1006,15 +304,17 @@ void EVB_PPPM::init()
   // compute qsum & qsqsum and warn if not charge-neutral
 
   qsum = qsqsum = 0.0;
-  for (int i = 0; i < atom->nlocal; i++) {
-    qsum += atom->q[i];
-    qsqsum += atom->q[i]*atom->q[i];
+  for (int i = 0; i < nlocal; i++) {
+    qsum += q[i];
+    qsqsum += q[i]*q[i];
   }
 
+  cr_qsqsum = 0.0;
+  
   // if kspace is CRHYDROXIDE, extract CR parameters from pair style
   if ((strcmp(force->kspace_style,"pppm/crhydroxide") == 0) ||
       (strcmp(force->kspace_style,"evb_pppm/crhydroxide") == 0)) {
-    if (force->pair == NULL) error->all(FLERR,"KSpace style is incompatible with Pair style");
+    if (force->pair == nullptr) error->all(FLERR,"KSpace style is incompatible with Pair style");
     double *p_qdist = (double *) force->pair->extract("qdist",itmp);
     int *p_typeO = (int *) force->pair->extract("typeO",itmp);
     int *p_typeH = (int *) force->pair->extract("typeH",itmp);
@@ -1034,17 +334,19 @@ void EVB_PPPM::init()
     cr_height   = *p_cr_height;
     cr_diameter = *p_cr_diameter;
 
-    if (force->bond == NULL) error->all(FLERR,"Bond potentials must be defined for CR-HYDROXIDE");
-    if (typeB < 1 || typeB > atom->nbondtypes || force->bond->setflag[typeB] == 0) error->all(FLERR,"Bad hydroxide bond type for PPPM/CRHYDROXIDE");
+    if (force->bond == nullptr)
+      error->all(FLERR,"Bond potentials must be defined for CR-HYDROXIDE");
+    if (typeB < 1 || typeB > atom->nbondtypes || force->bond->setflag[typeB] == 0)
+      error->all(FLERR,"Bad hydroxide bond type for PPPM/CRHYDROXIDE");
 
     // Adjust qsqsum for ring particles
     cr_qsqsum = 0.0;
-    for(int i=0; i<atom->nlocal; i++) {
+    for (int i = 0; i < nlocal; i++) {
       if(atom->type[i] == typeO) {
-	double qI = atom->q[i];
-	cr_qsqsum -= qI*qI;
-	qI /= double(cr_N);
-	cr_qsqsum += cr_N * qI * qI;
+        double qI = atom->q[i];
+        cr_qsqsum -= qI*qI;
+        qI /= double(cr_N);
+        cr_qsqsum += cr_N * qI * qI;
       }
     }
     qsqsum += cr_qsqsum;
@@ -1068,14 +370,16 @@ void EVB_PPPM::init()
   }
 
   // set accuracy (force units) from accuracy_relative or accuracy_absolute
-  
+
   if (accuracy_absolute >= 0.0) accuracy = accuracy_absolute;
   else accuracy = accuracy_relative * two_charge_force;
-  
-  if(comm->me == 0) {
-    printf("accuracy_relative %lf two_charge_force %lf accuracy %lf\n", accuracy_relative, two_charge_force, accuracy);
+
+  if (comm->me == 0) {
+    char str[128];
+    sprintf(str,"accuracy_relative %lf two_charge_force %lf accuracy %lf\n", accuracy_relative, two_charge_force, accuracy);
+    error->warning(FLERR,str);
   }
-  
+
   // free all arrays previously allocated
 
   deallocate();
@@ -1088,87 +392,48 @@ void EVB_PPPM::init()
 
   int (*procneigh)[2] = comm->procneigh;
 
-  GridComm *cgtmp = NULL;
+  gc = nullptr;
   int iteration = 0;
 
   while (order >= minorder) {
     if (iteration && me == 0)
       error->warning(FLERR,"Reducing EVB_PPPM order b/c stencil extends "
-		     "beyond nearest neighbor processor");
+                     "beyond nearest neighbor processor");
 
     set_grid_global();
     set_grid_local();
-    if(overlap_allowed) break;
+    if (overlap_allowed) break;
 
-    cgtmp = new GridComm(lmp,world,nx_pppm,ny_pppm,nz_pppm,
-                         nxlo_in,nxhi_in,nylo_in,nyhi_in,nzlo_in,nzhi_in,
-                         nxlo_out,nxhi_out,nylo_out,nyhi_out,nzlo_out,nzhi_out);
-      
+    gc = new Grid3d(lmp,world,nx_pppm,ny_pppm,nz_pppm);
+    gc->set_distance(0.5*neighbor->skin + qdist);
+    gc->set_stencil_atom(-nlower,nupper);
+    gc->set_shift_atom(shiftatom_lo,shiftatom_hi);
+    gc->set_zfactor(slab_volfactor);
+
+    gc->setup_grid(nxlo_in,nxhi_in,nylo_in,nyhi_in,nzlo_in,nzhi_in,
+                   nxlo_out,nxhi_out,nylo_out,nyhi_out,nzlo_out,nzhi_out);
+
     int tmp1,tmp2;
-    cgtmp->setup(tmp1,tmp2);
-    if (cgtmp->ghost_adjacent()) break;
-    delete cgtmp;
+    gc->setup_comm(tmp1,tmp2);
+    if (gc->ghost_adjacent()) break;
+    delete gc;
 
     order--;
     iteration++;
   }
 
   if (order < minorder) error->all(FLERR,"EVB_PPPM order < minimum allowed order");
-  if (!overlap_allowed && !cgtmp->ghost_adjacent())
-    error->all(FLERR,"EVB_PPPM grid stencil extends beyond nearest neighbor processor");
-  if (cgtmp) delete cgtmp;
+  if (!overlap_allowed && !gc->ghost_adjacent())
+    error->all(FLERR,"PPPM grid stencil extends beyond nearest neighbor processor");
+  if (gc) delete gc;
 
   // adjust g_ewald
 
-  if(!gewaldflag) adjust_gewald();
+  if (!gewaldflag) adjust_gewald();
 
   // calculate the final accuracy
 
   double estimated_accuracy = final_accuracy();
-
-  // print stats
-
-  int ngrid_max,nfft_both_max,nbuf_max;
-  MPI_Allreduce(&ngrid,&ngrid_max,1,MPI_INT,MPI_MAX,world);
-  MPI_Allreduce(&nfft_both,&nfft_both_max,1,MPI_INT,MPI_MAX,world);
-
-  if (me == 0) {
-
-#ifdef FFT_SINGLE
-    const char fft_prec[] = "single";
-#else
-    const char fft_prec[] = "double";
-#endif
-
-    if (screen) {
-      fprintf(screen,"  G vector (1/distance)= %g\n",g_ewald);
-      fprintf(screen,"  grid = %d %d %d\n",nx_pppm,ny_pppm,nz_pppm);
-      fprintf(screen,"  stencil order = %d\n",order);
-      if(differentiation_flag == 1) fprintf(screen,"  differentiation = ad (1 FFT energies + 1 FFT forces)\n");
-      else fprintf(screen,"  differentiation = ik (1 FFT energies + 3 FFT forces)\n");
-      fprintf(screen,"  estimated absolute RMS force accuracy = %g\n",
-              estimated_accuracy);
-      fprintf(screen,"  estimated relative force accuracy = %g\n",
-              estimated_accuracy/two_charge_force);
-      fprintf(screen,"  using %s precision FFTs\n",fft_prec);
-      fprintf(screen,"  3d grid and FFT values/proc = %d %d\n",
-              ngrid_max,nfft_both_max);
-    }
-    if (logfile) {
-      fprintf(logfile,"  G vector (1/distance) = %g\n",g_ewald);
-      fprintf(logfile,"  grid = %d %d %d\n",nx_pppm,ny_pppm,nz_pppm);
-      fprintf(logfile,"  stencil order = %d\n",order);
-      if(differentiation_flag == 1) fprintf(logfile,"  differentiation = ad (1 FFT energies + 1 FFT forces)\n");
-      else fprintf(logfile,"  differentiation = ik (1 FFT energies + 3 FFT forces)\n");
-      fprintf(logfile,"  estimated absolute RMS force accuracy = %g\n",
-              estimated_accuracy);
-      fprintf(logfile,"  estimated relative force accuracy = %g\n",
-              estimated_accuracy/two_charge_force);
-      fprintf(logfile,"  using %s precision FFTs\n",fft_prec);
-      fprintf(logfile,"  3d grid and FFT values/proc = %d %d\n",
-              ngrid_max,nfft_both_max);
-    }
-  }
 
   // allocate K-space dependent memory
 
@@ -1180,10 +445,1028 @@ void EVB_PPPM::init()
   compute_gf_denom();
   if (differentiation_flag == 1) compute_sf_precoeff();
   compute_rho_coeff();
+
+  // print stats
+
+  int ngrid_max,nfft_both_max,nbuf_max;
+  MPI_Allreduce(&ngrid,&ngrid_max,1,MPI_INT,MPI_MAX,world);
+  MPI_Allreduce(&nfft_both,&nfft_both_max,1,MPI_INT,MPI_MAX,world);
+
+  if (me == 0) {
+    std::string mesg = fmt::format("  G vector (1/distance) = {:.8g}\n",g_ewald);
+    mesg += fmt::format("  grid = {} {} {}\n",nx_pppm,ny_pppm,nz_pppm);
+    mesg += fmt::format("  stencil order = {}\n",order);
+    mesg += fmt::format("  estimated absolute RMS force accuracy = {:.8g}\n",
+                       estimated_accuracy);
+    mesg += fmt::format("  estimated relative force accuracy = {:.8g}\n",
+                       estimated_accuracy/two_charge_force);
+    mesg += "  using " LMP_FFT_PREC " precision " LMP_FFT_LIB "\n";
+    mesg += fmt::format("  3d grid and FFT values/proc = {} {}\n",
+                       ngrid_max,nfft_both_max);
+    utils::logmesg(lmp,mesg);
+  }
+
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::evb_setup()
+{
+  nlocal = atom->nlocal;
+
+  // extend size of per-atom arrays if necessary
+
+  if (nlocal > nmax) {
+    memory->destroy(part2grid);
+    memory->destroy(part2grid_dr);
+    nmax = atom->nmax;
+    memory->create(part2grid,nmax,3,"EVB_PPPM:part2grid");
+    memory->create(part2grid_dr,nmax,3,"EVB_PPPM:part2grid_dr");
+  }
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::clear_density()
+{
+  FFT_SCALAR *vec = &density_brick[nzlo_out][nylo_out][nxlo_out];
+  memset(vec, ZEROF, sizeof(FFT_SCALAR)*ngrid);
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::load_env_density()
+{
+  memcpy(&density_brick[nzlo_out][nylo_out][nxlo_out],
+         &env_density_brick[nzlo_out][nylo_out][nxlo_out],
+         sizeof(FFT_SCALAR)*ngrid);
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::map2density_one(int id)
+{
+  const double *q = atom->q;
+
+  const int nx = part2grid[id][0];
+  const int ny = part2grid[id][1];
+  const int nz = part2grid[id][2];
+
+  // (dx,dy,dz) = distance to "lower left" grid pt
+
+  compute_rho1d(part2grid_dr[id][0], part2grid_dr[id][1], part2grid_dr[id][2]);
+
+  // (mx,my,mz) = global coords of moving stencil pt
+
+  z0 = delvolinv * q[id];
+  for (int n = nlower; n <= nupper; n++) {
+    mz = n+nz;
+    y0 = z0*rho1d[2][n];
+
+    for (int m = nlower; m <= nupper; m++) {
+      my = m+ny;
+      x0 = y0*rho1d[1][m];
+
+      for (int l = nlower; l <= nupper; l++) {
+        mx = l+nx;
+        density_brick[mz][my][mx] += x0*rho1d[0][l];
+      } // Loop mx
+    } // Loop my
+  } // Loop mz
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::map2density_list(const int* list, int list_num, const int* check, bool flag)
+{
+  const double *q = atom->q;
+
+  for (int i = 0; i < list_num; i++) {
+
+    const int idx = list[i];
+    if (check[idx] != flag) continue;
+
+    const int nx = part2grid[idx][0];
+    const int ny = part2grid[idx][1];
+    const int nz = part2grid[idx][2];
+
+    // (dx,dy,dz) = distance to "lower left" grid pt
+
+    compute_rho1d(part2grid_dr[idx][0], part2grid_dr[idx][1], part2grid_dr[idx][2]);
+
+    // (mx,my,mz) = global coords of moving stencil pt
+
+    z0 = delvolinv * q[idx];
+    for (int n = nlower; n <= nupper; n++) {
+      mz = n+nz;
+      y0 = z0*rho1d[2][n];
+
+      for (int m = nlower; m <= nupper; m++) {
+        my = m+ny;
+        x0 = y0*rho1d[1][m];
+
+        for (int l = nlower; l <= nupper; l++) {
+          mx = l+nx;
+          density_brick[mz][my][mx] += x0*rho1d[0][l];
+        } // Loop mx
+      } // Loop my
+    } // Loop mz
+  }  
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::map2density_one(int id, int WHICH)
+{
+  double * q;
+  if(WHICH == Q_ATOM) q = atom->q;
+  else if(WHICH == Q_EFFECTIVE) q = evb_engine->evb_effpair->q;
+
+  nx = part2grid[id][0];
+  ny = part2grid[id][1];
+  nz = part2grid[id][2];
+
+  // (dx,dy,dz) = distance to "lower left" grid pt
+
+  compute_rho1d(part2grid_dr[id][0], part2grid_dr[id][1], part2grid_dr[id][2]);
+
+  // (mx,my,mz) = global coords of moving stencil pt
+
+  z0 = delvolinv * q[id];
+  for (int n = nlower; n <= nupper; n++) {
+    mz = n+nz;
+    y0 = z0*rho1d[2][n];
+
+    for (int m = nlower; m <= nupper; m++) {
+      my = m+ny;
+      x0 = y0*rho1d[1][m];
+
+      for (int l = nlower; l <= nupper; l++) {
+        mx = l+nx;
+        density_brick[mz][my][mx] += x0*rho1d[0][l];
+      } // Loop mx
+    } // Loop my
+  } // Loop mz
+}
+
+
+/*************************************************************************/
+
+void EVB_PPPM::map2density_one_subtract(int id)
+{
+  double *q = atom->q;
+
+  // Subtracts the contrinution for a given id
+  nx = part2grid[id][0];
+  ny = part2grid[id][1];
+  nz = part2grid[id][2];
+
+  // (dx,dy,dz) = distance to "lower left" grid pt
+
+  compute_rho1d(part2grid_dr[id][0], part2grid_dr[id][1], part2grid_dr[id][2]);
+
+  // (mx,my,mz) = global coords of moving stencil pt
+
+  const FFT_SCALAR z0 = delvolinv * q[id];
+  for (int n = nlower; n <= nupper; n++) {
+    const FFT_SCALAR y0 = z0*rho1d[2][n];
+    for (int m = nlower; m <= nupper; m++) {
+      const FFT_SCALAR x0 = y0*rho1d[1][m];
+      for (int l = nlower; l <= nupper; l++) {
+        density_brick[n+nz][m+ny][l+nx] -= x0*rho1d[0][l];
+      } // Loop mx
+    } // Loop my
+  } // Loop mz
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::map2density_list_subtract(const int* list, int list_num)
+{
+  const double *q = atom->q;
+
+  for (int i = 0; i < list_num; i++) {
+
+    const int idx = list[i];
+
+    // subtract the contribution for the given idx
+
+    const int nx = part2grid[idx][0];
+    const int ny = part2grid[idx][1];
+    const int nz = part2grid[idx][2];
+
+    // (dx,dy,dz) = distance to "lower left" grid pt
+
+    compute_rho1d(part2grid_dr[idx][0], part2grid_dr[idx][1], part2grid_dr[idx][2]);
+
+    // (mx,my,mz) = global coords of moving stencil pt
+
+    const FFT_SCALAR z0 = delvolinv * q[idx];
+    for (int n = nlower; n <= nupper; n++) {
+      const FFT_SCALAR y0 = z0*rho1d[2][n];
+      for (int m = nlower; m <= nupper; m++) {
+        const FFT_SCALAR x0 = y0*rho1d[1][m];
+        for (int l = nlower; l <= nupper; l++) {
+          density_brick[n+nz][m+ny][l+nx] -= x0*rho1d[0][l];
+        } // Loop mx
+      } // Loop my
+    } // Loop mz
+  }
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::poisson_energy(int vflag)
+{
+  int n;
+  double eng;
+
+  // transform charge density (r -> k)
+
+  n = 0;
+  for (int i=0; i<nfft; i++) {
+    work1[n++] = density_fft[i];
+    work1[n++] = ZEROF;
+
+  }
+
+  fft1->compute(work1,work1,1);
+
+  // if requested, compute energy and virial contribution
+
+  double scaleinv = 1.0/(nx_pppm*ny_pppm*nz_pppm);
+  double s2 = scaleinv*scaleinv;
+
+  n = 0;
+  if (vflag) {
+    for (int i=0; i<nfft; ++i) {
+      eng = s2 * greensfn[i] * (work1[n]*work1[n] + work1[n+1]*work1[n+1]);
+      for (int j=0; j<6; ++j) virial[j] += eng*vg[i][j];
+      energy += eng;
+      n += 2;
+    }
+  } else {
+    for (int i=0; i<nfft; ++i) {
+      eng = greensfn[i] * (work1[n]*work1[n] + work1[n+1]*work1[n+1]);
+      energy += eng;
+      n += 2;
+    }
+    energy *= s2;
+  }
+
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::field2force_one_ik(int id, bool Aflag)
+{
+  nx = part2grid[id][0];
+  ny = part2grid[id][1];
+  nz = part2grid[id][2];
+
+  compute_rho1d(part2grid_dr[id][0],part2grid_dr[id][1],part2grid_dr[id][2]);
+
+  ekx = eky = ekz = ZEROF;
+  for (int n = nlower; n <= nupper; n++) {
+    mz = n+nz;
+    z0 = rho1d[2][n];
+    for (int m = nlower; m <= nupper; m++) {
+      my = m+ny;
+      y0 = z0*rho1d[1][m];
+      for (int l = nlower; l <= nupper; l++) {
+        mx = l+nx;
+        x0 = y0*rho1d[0][l];
+        ekx -= x0*vdx_brick[mz][my][mx];;
+        eky -= x0*vdy_brick[mz][my][mx];;
+        ekz -= x0*vdz_brick[mz][my][mx];;
+      }
+    }
+  }
+
+  // convert E-field to force
+  double qfactor = qqrd2e * scale * q[id];
+  if(Aflag) qfactor *= A_Rq;
+
+  f[id][0] += qfactor * ekx;
+  f[id][1] += qfactor * eky;
+  if (slabflag != 2) f[id][2] += qfactor * ekz;
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::field2force_list_ik(const int* list, int list_num,
+                                   const int* check, bool flag, bool Aflag)
+{
+  const double *q = atom->q;
+  double **f = atom->f;
+
+  for (int i = 0; i < list_num; i++) {
+
+    const int idx = list[i];
+    if (check[idx] != flag) continue;
+
+    const int nx = part2grid[idx][0];
+    const int ny = part2grid[idx][1];
+    const int nz = part2grid[idx][2];
+
+    compute_rho1d(part2grid_dr[idx][0], part2grid_dr[idx][1], part2grid_dr[idx][2]);
+
+    FFT_SCALAR ekx = eky = ekz = ZEROF;
+    for (int n = nlower; n <= nupper; n++) {
+      mz = n+nz;
+      z0 = rho1d[2][n];
+      for (int m = nlower; m <= nupper; m++) {
+        my = m+ny;
+        y0 = z0*rho1d[1][m];
+        for (int l = nlower; l <= nupper; l++) {
+          mx = l+nx;
+          x0 = y0*rho1d[0][l];
+          ekx -= x0*vdx_brick[mz][my][mx];;
+          eky -= x0*vdy_brick[mz][my][mx];;
+          ekz -= x0*vdz_brick[mz][my][mx];;
+        }
+      }
+    }
+
+    // convert E-field to force
+    double qfactor = qqrd2e * scale * q[idx];
+    if(Aflag) qfactor *= A_Rq;
+
+    f[idx][0] += qfactor * ekx;
+    f[idx][1] += qfactor * eky;
+    if (slabflag != 2) f[idx][2] += qfactor * ekz;
+  }
+  
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::field2force_one_ad(int id, bool Aflag)
+{
+  double s1, s2, s3;
+  double sf = 0.0;
+  double *prd;
+
+  const double *q = atom->q;
+  double **f = atom->f;
+
+  if (triclinic == 0) prd = domain->prd;
+  else prd = domain->prd_lamda;
+
+  const double hx_inv = nx_pppm / prd[0];
+  const double hy_inv = ny_pppm / prd[1];
+  const double hz_inv = nz_pppm / prd[2];
+
+  nx = part2grid[id][0];
+  ny = part2grid[id][1];
+  nz = part2grid[id][2];
+
+  compute_rho1d(part2grid_dr[id][0],part2grid_dr[id][1],part2grid_dr[id][2]);
+  compute_drho1d(part2grid_dr[id][0],part2grid_dr[id][1],part2grid_dr[id][2]);
+
+  ekx = eky = ekz = ZEROF;
+  for (int n = nlower; n <= nupper; n++) {
+    mz = n+nz;
+    for (int m = nlower; m <= nupper; m++) {
+      my = m+ny;
+      for (int l = nlower; l <= nupper; l++) {
+        mx = l+nx;
+        ekx += drho1d[0][l] *  rho1d[1][m] *  rho1d[2][n] * u_brick[mz][my][mx];
+        eky +=  rho1d[0][l] * drho1d[1][m] *  rho1d[2][n] * u_brick[mz][my][mx];
+        ekz +=  rho1d[0][l] *  rho1d[1][m] * drho1d[2][n] * u_brick[mz][my][mx];
+      }
+    }
+  }
+  ekx *= hx_inv;
+  eky *= hy_inv;
+  ekz *= hz_inv;
+
+  // convert E-field to force and subtract self forces
+  double qfactor = qqrd2e * scale;
+  if (Aflag) qfactor *= A_Rq;
+
+  s1 = x[id][0] * hx_inv;
+  s2 = x[id][1] * hy_inv;
+  s3 = x[id][2] * hz_inv;
+  sf = sf_coeff[0] * sin(2 * MY_PI * s1);
+  sf += sf_coeff[1] * sin(4 * MY_PI * s1);
+  sf *= 2 * q[id] * q[id];
+  f[id][0] += qfactor * (ekx * q[id] - sf);
+
+  sf = sf_coeff[2] * sin(2 * MY_PI * s2);
+  sf += sf_coeff[3] * sin(4 * MY_PI * s2);
+  sf *= 2 * q[id] * q[id];
+  f[id][1] += qfactor * (eky * q[id] - sf);
+
+  if (slabflag != 2) {
+    sf = sf_coeff[4] * sin(2 * MY_PI * s3);
+    sf += sf_coeff[5] * sin(4 * MY_PI * s3);
+    sf *= 2 * q[id] * q[id];
+    f[id][2] += qfactor * (ekz * q[id] - sf);
+  }
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::field2force_list_ad(const int* list, int list_num,
+                                   const int* check, bool flag, bool Aflag)
+{
+  double s1, s2, s3;
+  double sf = 0.0;
+  double *prd;
+
+  if (triclinic == 0) prd = domain->prd;
+  else prd = domain->prd_lamda;
+
+  const double hx_inv = nx_pppm / prd[0];
+  const double hy_inv = ny_pppm / prd[1];
+  const double hz_inv = nz_pppm / prd[2];
+
+  for (int i = 0; i < list_num; i++) {
+
+    const int idx = list[i];
+    if (check[idx] != flag) continue;
+
+    const int nx = part2grid[idx][0];
+    const int ny = part2grid[idx][1];
+    const int nz = part2grid[idx][2];
+
+    compute_rho1d(part2grid_dr[idx][0], part2grid_dr[idx][1], part2grid_dr[idx][2]);
+    compute_drho1d(part2grid_dr[idx][0], part2grid_dr[idx][1], part2grid_dr[idx][2]);
+
+    FFT_SCALAR ekx = eky = ekz = ZEROF;
+    for (int n = nlower; n <= nupper; n++) {
+      mz = n+nz;
+      for (int m = nlower; m <= nupper; m++) {
+        my = m+ny;
+        for (int l = nlower; l <= nupper; l++) {
+          mx = l+nx;
+          ekx += drho1d[0][l] *  rho1d[1][m] *  rho1d[2][n] * u_brick[mz][my][mx];
+          eky +=  rho1d[0][l] * drho1d[1][m] *  rho1d[2][n] * u_brick[mz][my][mx];
+          ekz +=  rho1d[0][l] *  rho1d[1][m] * drho1d[2][n] * u_brick[mz][my][mx];
+        }
+      }
+    }
+    ekx *= hx_inv;
+    eky *= hy_inv;
+    ekz *= hz_inv;
+
+    // convert E-field to force and subtract self forces
+    double qfactor = qqrd2e * scale;
+    if (Aflag) qfactor *= A_Rq;
+
+    double qtmp = q[idx];
+    s1 = x[idx][0] * hx_inv;
+    s2 = x[idx][1] * hy_inv;
+    s3 = x[idx][2] * hz_inv;
+    sf = sf_coeff[0] * sin(2 * MY_PI * s1);
+    sf += sf_coeff[1] * sin(4 * MY_PI * s1);
+    sf *= 2 * qtmp * qtmp;
+    f[idx][0] += qfactor * (ekx * qtmp - sf);
+
+    sf = sf_coeff[2] * sin(2 * MY_PI * s2);
+    sf += sf_coeff[3] * sin(4 * MY_PI * s2);
+    sf *= 2 * qtmp * qtmp;
+    f[idx][1] += qfactor * (eky * qtmp - sf);
+
+    if (slabflag != 2) {
+      sf = sf_coeff[4] * sin(2 * MY_PI * s3);
+      sf += sf_coeff[5] * sin(4 * MY_PI * s3);
+      sf *= 2 * qtmp * qtmp;
+      f[idx][2] += qfactor * (ekz * qtmp - sf);
+    }
+  }
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::reduce_ev(int vflag, bool Aflag)
+{
+  energy *= (0.5*volume);
+  if (comm->me == 0) energy -= g_ewald*qsqsum/MY_PIS + MY_PI2*qsum*qsum / (g_ewald*g_ewald*volume);
+  energy *= qqrd2e;
+  
+  // sum virial across procs
+
+  if (vflag) {
+    double virial_all[6];
+    MPI_Allreduce(virial,virial_all,6,MPI_DOUBLE,MPI_SUM,world);
+    double pre_factor = 0.5*qqrd2e*volume;
+    if (Aflag) pre_factor *= A_Rq;
+    for (int i = 0; i < 6; i++) virial[i] = pre_factor*virial_all[i];
+  }
+}
+
+/************************************************************************
+  Compute the kspace env contribution
+    compute env_density_brick, which is then used in load_env_density()
+    during compute_exch()
+*************************************************************************/
+
+void EVB_PPPM::compute_env(int vflag)
+{
+  TIMER_STAMP(EVB_PPPM, compute_env);
+
+  nlocal = atom->nlocal;
+
+  q = atom->q;
+  x = atom->x;
+  f = atom->f;
+
+  int* is_cplx_atom = evb_engine->complex_atom;
+  int* cplx_list = evb_engine->evb_complex->cplx_list;
+  int nlocal_cplx = evb_engine->evb_complex->nlocal_cplx;
+  int has_cplx_atom = evb_engine->has_complex_atom;
+
+  energy = 0.0;
+  if (vflag) for (int i = 0; i < 6; i++) virial[i] = 0.0;
+
+  // convert atoms from box to lamda coords
+
+  if (triclinic == 0) boxlo = domain->boxlo;
+  else {
+    boxlo = domain->boxlo_lamda;
+    domain->x2lamda(atom->nlocal);
+  }
+
+  // Calculate the ENV density map: store the original density brick
+  FFT_SCALAR ***save_density = density_brick;
+  density_brick = env_density_brick;
+  clear_density();
+
+  // make the charge density all at once: working on env_density_brick
+  make_rho();
+  
+  // then remove the contribution of the complex atoms from density_brick
+  if (has_cplx_atom) {
+    map2density_list_subtract(cplx_list, nlocal_cplx);
+  }
+
+  density_brick = save_density;
+  load_env_density();
+
+  TIMER_STAMP(EVB_PPPM, kspace_reverse_comm_env);
+  gc->reverse_comm(Grid3d::KSPACE,this,REVERSE_RHO,1,sizeof(FFT_SCALAR),
+                   gc_buf1,gc_buf2,MPI_FFT_SCALAR);                   
+  TIMER_CLICK(EVB_PPPM, kspace_reverse_comm_env);
+
+  brick2fft();
+
+  poisson_energy(vflag);
+
+  
+  qsqsum = evb_engine->qsqsum_env = evb_engine->qsqsum_sys-evb_engine->evb_complex->qsqsum;
+
+  reduce_ev(vflag,true);
+
+  env_energy = energy;
+
+  if (vflag) for (int i = 0; i < 6; i++) virial[i] = 0.0;
+
+  // Environment contribution to dipole for slab correction
+  if (slabflag) {
+    double *q = atom->q;
+    double **x = atom->x;
+
+    double dipole = 0.0;
+    double dipole_r2 = 0.0;
+    for (int i = 0; i < nlocal; i++)
+      if (!is_cplx_atom[i]) {
+        dipole    += q[i] * x[i][2];
+        dipole_r2 += q[i] * x[i][2] * x[i][2];
+      }
+
+    MPI_Allreduce(&dipole,    &dipole_env,    1, MPI_DOUBLE, MPI_SUM, world);
+    MPI_Allreduce(&dipole_r2, &dipole_r2_env, 1, MPI_DOUBLE, MPI_SUM, world);
+  }
+
+  if (triclinic) domain->lamda2x(atom->nlocal);
+
+  TIMER_CLICK(EVB_PPPM, compute_env);
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::compute_env_density(int vflag)
+{
+  TIMER_STAMP(EVB_PPPM, compute_env);
+
+  nlocal = atom->nlocal;
+
+  q = atom->q;
+  x = atom->x;
+
+  int* is_cplx_atom = evb_engine->complex_atom;
+  int* cplx_list = evb_engine->evb_complex->cplx_list;
+  int nlocal_cplx = evb_engine->evb_complex->nlocal_cplx;
+  int has_cplx_atom = evb_engine->has_complex_atom;
+
+  energy = 0.0;
+  if (vflag) for (int i=0; i<6; i++) virial[i] = 0.0;
+
+  // convert atoms from box to lamda coords
+
+  if (triclinic == 0) boxlo = domain->boxlo;
+  else {
+    boxlo = domain->boxlo_lamda;
+    domain->x2lamda(atom->nlocal);
+  }
+
+  // calculate the ENV density map
+  FFT_SCALAR ***save_density = density_brick;
+  density_brick = env_density_brick;
+  clear_density();
+
+  // make the charge density all at once
+
+  make_rho();
+
+  // remove the contribution of complex atoms
+
+  if (has_cplx_atom)
+    map2density_list_subtract(cplx_list, nlocal_cplx);  
+
+  density_brick = save_density;
+  load_env_density();
+
+  qsqsum = evb_engine->qsqsum_env = 0.0;
+  env_energy = energy;
+
+  // Environment contribution to dipole for slab correction
+  if (slabflag) {
+    double *q = atom->q;
+    double **x = atom->x;
+
+    double dipole = 0.0;
+    double dipole_r2 = 0.0;
+    for(int i=0; i<atom->nlocal; i++) if(!is_cplx_atom[i]) {
+        dipole    += q[i] * x[i][2];
+        dipole_r2 += q[i] * x[i][2] * x[i][2];
+      }
+
+    MPI_Allreduce(&dipole,    &dipole_env,    1, MPI_DOUBLE, MPI_SUM, world);
+    MPI_Allreduce(&dipole_r2, &dipole_r2_env, 1, MPI_DOUBLE, MPI_SUM, world);
+  }
+
+  if (triclinic) domain->lamda2x(atom->nlocal);
+  TIMER_CLICK(EVB_PPPM, compute_env);
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::compute_cplx(int vflag)
+{
+  TIMER_STAMP(EVB_PPPM, compute_cplx);
+
+  f = atom->f;
+
+  energy = 0.0;
+  if (vflag) for (int i = 0; i < 6; i++) virial[i] = 0.0;
+
+  // convert atoms from box to lamda coords
+
+  if (triclinic == 0) boxlo = domain->boxlo;
+  else {
+    boxlo = domain->boxlo_lamda;
+    domain->x2lamda(atom->nlocal);
+  }
+
+  int *is_cplx_atom = evb_engine->complex_atom;
+  int nlocal_cplx = evb_engine->evb_complex->nlocal_cplx;
+  int* cplx_list = evb_engine->evb_complex->cplx_list;
+  int has_cplx_atom = evb_engine->has_complex_atom;
+
+  // if the current state is a pivot one, then load the env density
+  //   add the complex atom charge contribution to density brick
+  //   do the reverse comm for accumulating density brick from ghost atoms
+  //   get the FFT of the density brick
+  //   finally subtract the complex atom charge contribution to get the env density brick
+
+  if (pivot_state == 1) {
+
+    load_env_density();
+
+    if (has_cplx_atom) map2density_list(cplx_list, nlocal_cplx, is_cplx_atom, true);
+
+    TIMER_STAMP(EVB_PPPM, kspace_reverse_comm_cplx);
+    gc->reverse_comm(Grid3d::KSPACE,this,REVERSE_RHO,1,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);                    
+    TIMER_CLICK(EVB_PPPM, kspace_reverse_comm_cplx);
+
+    brick2fft();
+
+    if (has_cplx_atom) map2density_list_subtract(cplx_list, nlocal_cplx);
+
+  } else {
+
+    // for non-pivot states, just add the complex atom charge contribution to density brick
+    //   skip reverse comm part
+    //   get the FFT of the density brick
+    //   finally subtract the complex atom charge contribution to get the env density brick
+    if (has_cplx_atom)  map2density_list(cplx_list, nlocal_cplx, is_cplx_atom, true);
+
+    brick2fft();
+
+    if (has_cplx_atom) map2density_list_subtract(cplx_list, nlocal_cplx);
+  }
+
+  // Don't calculate forces here in SCI simulations during compute(), only initialize().
+
+  if (evb_engine->ncomplex == 1) {
+
+    poisson(true,vflag);
+
+    TIMER_STAMP(EVB_PPPM, kspace_forward_comm_cplx);
+    if (differentiation_flag == 1)
+      gc->forward_comm(Grid3d::KSPACE,this,FORWARD_AD,1,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+    else
+      gc->forward_comm(Grid3d::KSPACE,this,FORWARD_IK,3,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+    TIMER_CLICK(EVB_PPPM, kspace_forward_comm_cplx);
+
+    fieldforce();
+
+  } else if ( (evb_engine->SCI_KSPACE_flag == KSPACE_DEFAULT || evb_engine->SCI_KSPACE_flag == PPPM_HF_FORCES) &&
+               evb_engine->engine_indicator == ENGINE_INDICATOR_INITIALIZE) {
+
+    poisson(true,vflag);
+
+    TIMER_STAMP(EVB_PPPM, kspace_forward_comm_cplx);
+    if (differentiation_flag == 1) {
+      gc->forward_comm(Grid3d::KSPACE,this,FORWARD_AD,1,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+      field2force_list_ad(cplx_list, nlocal_cplx, is_cplx_atom, true, false);
+    } else {
+      gc->forward_comm(Grid3d::KSPACE,this,FORWARD_IK,3,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+      field2force_list_ik(cplx_list, nlocal_cplx, is_cplx_atom, true, false);
+    }
+    TIMER_CLICK(EVB_PPPM, kspace_forward_comm_cplx);
+
+  } else poisson_energy(vflag);
+
+  qsqsum = evb_engine->qsqsum_env + evb_engine->evb_complex->qsqsum;
+  reduce_ev(vflag,true);
+
+  // Don't calculate slab correction here in SCI simulations
+  if (slabflag && evb_engine->ncomplex == 1) slabcorr_cplx();
+
+
+  energy -= env_energy;
+
+  if (triclinic) domain->lamda2x(atom->nlocal);
+  TIMER_CLICK(EVB_PPPM, compute_cplx);
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::compute_cplx_eff(int vflag)
+{
+  TIMER_STAMP(EVB_PPPM, compute_cplx_eff);
+
+  energy = 0.0;
+  if (vflag) for (int i=0; i<6; i++) virial[i] = 0.0;
+  f = atom->f;
+
+  // convert atoms from box to lamda coords
+
+  if (triclinic == 0) boxlo = domain->boxlo;
+  else {
+    boxlo = domain->boxlo_lamda;
+    domain->x2lamda(atom->nlocal);
+  }
+
+  int *is_cplx_atom = evb_engine->complex_atom;
+  int cplx_id = evb_engine->evb_complex->id;
+  int nlocal_cplx = evb_engine->evb_complex->nlocal_cplx;
+  int* cplx_list = evb_engine->evb_complex->cplx_list;
+
+  clear_density();
+  for (int i = 0; i < nlocal; i++) {
+      if (is_cplx_atom[i] == cplx_id) map2density_one(i,Q_ATOM);
+      else map2density_one(i,Q_EFFECTIVE);
+    }
+
+  TIMER_STAMP(EVB_PPPM, kspace_reverse_comm_cplx);
+  gc->reverse_comm(Grid3d::KSPACE,this,REVERSE_RHO,1,sizeof(FFT_SCALAR),
+                   gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+  TIMER_CLICK(EVB_PPPM, kspace_reverse_comm_cplx);
+
+  brick2fft();
+
+  poisson(true,vflag);
+
+  TIMER_STAMP(EVB_PPPM, kspace_forward_comm_cplx);
+  // Only accumulate forces on complex atoms
+  if (differentiation_flag == 1) {
+    gc->forward_comm(Grid3d::KSPACE,this,FORWARD_AD,1,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+    //for (int i = 0; i < nlocal_cplx; i++) field2force_one_ad(cplx_list[i],false);
+    field2force_list_ad(cplx_list, nlocal_cplx, is_cplx_atom, true, false);
+  } else {
+    gc->forward_comm(Grid3d::KSPACE,this,FORWARD_IK,3,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+    //for (int i = 0; i < nlocal_cplx; i++) field2force_one_ik(cplx_list[i],false);
+    field2force_list_ik(cplx_list, nlocal_cplx, is_cplx_atom, true, false);
+  }
+  TIMER_CLICK(EVB_PPPM, kspace_forward_comm_cplx);
+
+  if (triclinic) domain->lamda2x(atom->nlocal);
+  TIMER_CLICK(EVB_PPPM, compute_cplx_eff);
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::compute_exch(int vflag)
+{
+  TIMER_STAMP(EVB_PPPM, compute_exch);
+
+  double qsum_save = qsum;
+
+  f = atom->f;
+  double save_energy = energy;
+  double save_virial[6];
+  memcpy(save_virial,virial,sizeof(double)*6);
+  
+  /***************************************************/
+  /******* Overall                             *******/
+  /***************************************************/
+  
+  energy = 0.0;
+  if (vflag) for (int i=0; i<6; i++) virial[i] = 0.0;
+  
+  // convert atoms from box to lamda coords
+
+  if (triclinic == 0) boxlo = domain->boxlo;
+  else {
+    boxlo = domain->boxlo_lamda;
+    domain->x2lamda(atom->nlocal);
+  }
+  
+  load_env_density();
+
+  int* is_cplx_atom = evb_engine->complex_atom;
+  int nlocal_cplx = evb_engine->evb_complex->nlocal_cplx;
+  int* cplx_list = evb_engine->evb_complex->cplx_list;
+
+  // add the contribution from the complex atoms
+  map2density_list(cplx_list, nlocal_cplx, is_cplx_atom, true);
+
+  TIMER_STAMP(EVB_PPPM, kspace_reverse_comm_cplx);
+  gc->reverse_comm(Grid3d::KSPACE,this,REVERSE_RHO,1,sizeof(FFT_SCALAR),
+                   gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+  TIMER_CLICK(EVB_PPPM, kspace_reverse_comm_cplx);
+
+  brick2fft();
+  poisson_energy(vflag);
+
+  TIMER_STAMP(EVB_PPPM, kspace_forward_comm_cplx);
+  if (differentiation_flag == 1) {
+    gc->forward_comm(Grid3d::KSPACE,this,FORWARD_AD,1,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+  } else {
+    gc->forward_comm(Grid3d::KSPACE,this,FORWARD_IK,3,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+  }
+  TIMER_CLICK(EVB_PPPM, kspace_forward_comm_cplx);
+
+  qsum = qsqsum = 0.0;
+  reduce_ev(vflag,true);
+
+  off_diag_energy = energy;
+  if (vflag) memcpy(off_diag_virial,virial,sizeof(double)*6);
+  #ifdef EVB_PPPM_DEBUG
+  printf("off_diag energy = %f; env + complex energy = %f\n", off_diag_energy, energy);
+  #endif
+
+  /***************************************************/
+  /******* Mesh(Exch_chg)->Point(Non_exch_chg) *******/
+  /***************************************************/
+
+  energy = 0.0;
+  if (vflag) for (int i = 0; i < 6; i++) virial[i] = 0.0;
+  clear_density();
+ 
+  // compute charge density of the exchanged charges only
+  //for (int i=0; i<nlocal; i++) if(is_exch_chg[i]) map2density_one(i);
+  map2density_list(cplx_list, nlocal_cplx, is_exch_chg, true);
+
+  TIMER_STAMP(EVB_PPPM, kspace_reverse_comm_cplx);
+  gc->reverse_comm(Grid3d::KSPACE,this,REVERSE_RHO,1,sizeof(FFT_SCALAR),
+                   gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+  TIMER_CLICK(EVB_PPPM, kspace_reverse_comm_cplx);
+
+  brick2fft();
+  poisson(true, vflag);
+
+  TIMER_STAMP(EVB_PPPM, kspace_forward_comm_cplx);
+  if (differentiation_flag == 1) {
+    gc->forward_comm(Grid3d::KSPACE,this,FORWARD_AD,1,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+    // compute the kspace force on the non-exchange charges
+    field2force_list_ad(cplx_list, nlocal_cplx, is_exch_chg, false, true);
+
+  } else {
+    gc->forward_comm(Grid3d::KSPACE,this,FORWARD_IK,3,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+    // compute the kspace force on the non-exchange charges
+    field2force_list_ik(cplx_list, nlocal_cplx, is_exch_chg, false, true);
+  }
+  TIMER_CLICK(EVB_PPPM, kspace_forward_comm_cplx);
+
+  reduce_ev(vflag,true);
+
+  off_diag_energy -= energy;
+  if (vflag) for (int i = 0; i < 6; i++) off_diag_virial[i] -= virial[i];
+
+  #ifdef EVB_PPPM_DEBUG
+  printf("off_diag energy = %f; exchange only complex energy = %f\n", off_diag_energy, energy);
+  #endif
+
+  /***************************************************/
+  /******* Mesh(Non_exch_chg)->Point(Exch_chg) *******/
+  /***************************************************/
+
+  energy = 0.0;
+  if (vflag) for (int i = 0; i < 6; i++) virial[i] = 0.0;
+
+  // load the env charge density brick (again)
+  load_env_density();
+
+  //clear_density();
+
+  // only add the contribution from complex atoms that are not exchanged
+  //for (int i=0; i<nlocal; i++) if(is_cplx_atom[i] && !is_exch_chg[i]) map2density_one(i);
+  map2density_list(cplx_list, nlocal_cplx, is_exch_chg, false);
+
+  TIMER_STAMP(EVB_PPPM, kspace_reverse_comm_cplx);
+  gc->reverse_comm(Grid3d::KSPACE,this,REVERSE_RHO,1,sizeof(FFT_SCALAR),
+                   gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+  TIMER_CLICK(EVB_PPPM, kspace_reverse_comm_cplx);
+
+  brick2fft();
+  poisson(true, vflag);
+
+  TIMER_STAMP(EVB_PPPM, kspace_forward_comm_cplx);
+  if (differentiation_flag == 1) {
+    gc->forward_comm(Grid3d::KSPACE,this,FORWARD_AD,1,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+    // compute the kspace force on the exchange charges
+    field2force_list_ad(cplx_list, nlocal_cplx, is_exch_chg, true, true);
+
+  } else {
+    gc->forward_comm(Grid3d::KSPACE,this,FORWARD_IK,3,sizeof(FFT_SCALAR),
+                     gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+    // compute the kspace force on the exchange charges
+    field2force_list_ik(cplx_list, nlocal_cplx, is_exch_chg, true, true);
+  }
+  TIMER_CLICK(EVB_PPPM, kspace_forward_comm_cplx);
+
+  reduce_ev(vflag,true);
+
+  off_diag_energy -= energy;
+  if (vflag) for (int i = 0; i < 6; i++) off_diag_virial[i]-=virial[i];
+
+/*
+  qsum = qsqsum = 0.0;
+  reduce_ev(vflag,true);
+
+  off_diag_energy = energy;
+  if (vflag) memcpy(off_diag_virial,virial,sizeof(double)*6);
+*/
+  #ifdef EVB_PPPM_DEBUG
+  printf("off_diag energy = %f; env + non-exchange only complex energy = %f\n", off_diag_energy, energy);
+  #endif
+
+  /***************************************************************/
+  /***************************************************************/
+
+  // Don't calculate slab correction here in SCI simulations
+  if (slabflag && evb_engine->ncomplex == 1) slabcorr_exch();
+
+  double energy_all;
+  MPI_Allreduce(&off_diag_energy,&energy_all,1,MPI_DOUBLE,MPI_SUM,world);
+  off_diag_energy = energy_all;
+
+  energy = save_energy;
+  memcpy(virial, save_virial,sizeof(double)*6);
+
+  qsum = qsum_save;
+
+  if (triclinic) domain->lamda2x(atom->nlocal);
+  TIMER_CLICK(EVB_PPPM, compute_exch);
+}
+
+/*************************************************************************/
+
+void EVB_PPPM::compute_eff(int vflag)
+{
+
 }
 
 /* ----------------------------------------------------------------------
-   adjust EVB_PPPM coeffs, called initially and whenever volume has changed 
+   adjust EVB_PPPM coeffs, called initially and whenever volume has changed
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::setup()
@@ -1192,7 +1475,7 @@ void EVB_PPPM::setup()
     setup_triclinic();
     return;
   }
-  
+
   int i,j,k,l,m,n;
   double *prd;
 
@@ -1208,7 +1491,7 @@ void EVB_PPPM::setup()
   double zprd = prd[2];
   double zprd_slab = zprd*slab_volfactor;
   volume = xprd * yprd * zprd_slab;
-    
+
   delxinv = nx_pppm/xprd;
   delyinv = ny_pppm/yprd;
   delzinv = nz_pppm/zprd_slab;
@@ -1246,24 +1529,24 @@ void EVB_PPPM::setup()
   for (k = nzlo_fft; k <= nzhi_fft; k++) {
     for (j = nylo_fft; j <= nyhi_fft; j++) {
       for (i = nxlo_fft; i <= nxhi_fft; i++) {
-	sqk = fkx[i]*fkx[i] + fky[j]*fky[j] + fkz[k]*fkz[k];
-	if (sqk == 0.0) {
-	  vg[n][0] = 0.0;
-	  vg[n][1] = 0.0;
-	  vg[n][2] = 0.0;
-	  vg[n][3] = 0.0;
-	  vg[n][4] = 0.0;
-	  vg[n][5] = 0.0;
-	} else {
-	  vterm = -2.0 * (1.0/sqk + 0.25/(g_ewald*g_ewald));
-	  vg[n][0] = 1.0 + vterm*fkx[i]*fkx[i];
-	  vg[n][1] = 1.0 + vterm*fky[j]*fky[j];
-	  vg[n][2] = 1.0 + vterm*fkz[k]*fkz[k];
-	  vg[n][3] = vterm*fkx[i]*fky[j];
-	  vg[n][4] = vterm*fkx[i]*fkz[k];
-	  vg[n][5] = vterm*fky[j]*fkz[k];
-	}
-	n++;
+        sqk = fkx[i]*fkx[i] + fky[j]*fky[j] + fkz[k]*fkz[k];
+        if (sqk == 0.0) {
+          vg[n][0] = 0.0;
+          vg[n][1] = 0.0;
+          vg[n][2] = 0.0;
+          vg[n][3] = 0.0;
+          vg[n][4] = 0.0;
+          vg[n][5] = 0.0;
+        } else {
+          vterm = -2.0 * (1.0/sqk + 0.25/(g_ewald*g_ewald));
+          vg[n][0] = 1.0 + vterm*fkx[i]*fkx[i];
+          vg[n][1] = 1.0 + vterm*fky[j]*fky[j];
+          vg[n][2] = 1.0 + vterm*fkz[k]*fkz[k];
+          vg[n][3] = vterm*fkx[i]*fky[j];
+          vg[n][4] = vterm*fkx[i]*fkz[k];
+          vg[n][5] = vterm*fky[j]*fkz[k];
+        }
+        n++;
       }
     }
   }
@@ -1377,8 +1660,8 @@ void EVB_PPPM::setup_grid()
   // don't invoke allocate_peratom(), compute() will allocate when needed
 
   allocate();
-    
-  if (overlap_allowed == 0 && !cg->ghost_adjacent())
+
+  if (overlap_allowed == 0 && !gc->ghost_adjacent())
     error->all(FLERR,"PPPM grid stencil extends "
                "beyond nearest neighbor processor");
 
@@ -1395,29 +1678,76 @@ void EVB_PPPM::setup_grid()
 }
 
 /* ----------------------------------------------------------------------
-   compute the EVB_PPPM long-range force, energy, virial 
+   compute the EVB_PPPM long-range force, energy, virial
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::compute(int eflag, int vflag)
-{ 
+{
   return;
 }
 
+/* ---------------------------------------------------------------------- */
+
+void EVB_PPPM::settings(int narg, char **arg)
+{
+  if (narg < 1) error->all(FLERR,"Illegal kspace_style pppm command");
+  accuracy_relative = fabs(utils::numeric(FLERR,arg[0],false,lmp));
+}
+
 /* ----------------------------------------------------------------------
-   allocate memory that depends on # of K-vectors and order 
+   allocate memory that depends on # of K-vectors and order
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::allocate()
 {
-  /*******************************************************/
-  /*******************************************************/
+  // create ghost grid object for rho and electric field communication
+  // returns local owned and ghost grid bounds
+  // setup communication patterns and buffers
+
+  gc = new Grid3d(lmp,world,nx_pppm,ny_pppm,nz_pppm);
+  gc->set_distance(0.5*neighbor->skin + qdist);
+  gc->set_stencil_atom(-nlower,nupper);
+  gc->set_shift_atom(shiftatom_lo,shiftatom_hi);
+  gc->set_zfactor(slab_volfactor);
+
+  gc->setup_grid(nxlo_in,nxhi_in,nylo_in,nyhi_in,nzlo_in,nzhi_in,
+                 nxlo_out,nxhi_out,nylo_out,nyhi_out,nzlo_out,nzhi_out);
+
+  gc->setup_comm(ngc_buf1,ngc_buf2);
+
+  if (differentiation_flag) npergrid = 1;
+  else npergrid = 3;
+
+  memory->create(gc_buf1,npergrid*ngc_buf1,"EVB_PPPM:gc_buf1");
+  memory->create(gc_buf2,npergrid*ngc_buf2,"EVB_PPPM:gc_buf2");
+
+  // tally local grid sizes
+  // ngrid = count of owned+ghost grid cells on this proc
+  // nfft_brick = FFT points in 3d brick-decomposition on this proc
+  //              same as count of owned grid cells
+  // nfft = FFT points in x-pencil FFT decomposition on this proc
+  // nfft_both = greater of nfft and nfft_brick
+
+  ngrid = (nxhi_out-nxlo_out+1) * (nyhi_out-nylo_out+1) *
+    (nzhi_out-nzlo_out+1);
+
+  nfft_brick = (nxhi_in-nxlo_in+1) * (nyhi_in-nylo_in+1) *
+    (nzhi_in-nzlo_in+1);
+
+  nfft = (nxhi_fft-nxlo_fft+1) * (nyhi_fft-nylo_fft+1) *
+    (nzhi_fft-nzlo_fft+1);
+
+  nfft_both = MAX(nfft,nfft_brick);
+
+  // density brick for the environment group
+
   memory->create3d_offset(env_density_brick,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-			  nxlo_out,nxhi_out,"EVB_PPPM:env_density_brick");
-  /*******************************************************/
-  /*******************************************************/
-  
+                          nxlo_out,nxhi_out,"EVB_PPPM:env_density_brick");
+
+  // allocate distributed grid data
+
   memory->create3d_offset(density_brick,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-				   nxlo_out,nxhi_out,"EVB_PPPM:density_brick");
+                                   nxlo_out,nxhi_out,"EVB_PPPM:density_brick");
 
 
   memory->create(density_fft,nfft_both,"EVB_PPPM:density_fft");
@@ -1425,7 +1755,7 @@ void EVB_PPPM::allocate()
   memory->create(work1,2*nfft_both,"EVB_PPPM:work1");
   memory->create(work2,2*nfft_both,"EVB_PPPM:work2");
   memory->create(vg,nfft_both,6,"EVB_PPPM:vg");
-  
+
   if (triclinic == 0) {
     memory->create1d_offset(fkx,nxlo_fft,nxhi_fft,"EVB_pppm:fkx");
     memory->create1d_offset(fky,nylo_fft,nyhi_fft,"EVB_pppm:fky");
@@ -1435,7 +1765,7 @@ void EVB_PPPM::allocate()
     memory->create(fky,nfft_both,"EVB_pppm:fky");
     memory->create(fkz,nfft_both,"EVB_pppm:fkz");
   }
-  
+
   if (differentiation_flag == 1) {
     memory->create3d_offset(u_brick,nzlo_out,nzhi_out,nylo_out,nyhi_out,
                           nxlo_out,nxhi_out,"EVB_PPPM:u_brick");
@@ -1449,11 +1779,11 @@ void EVB_PPPM::allocate()
 
   } else {
     memory->create3d_offset(vdx_brick,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-			    nxlo_out,nxhi_out,"EVB_PPPM:vdx_brick");
+                            nxlo_out,nxhi_out,"EVB_PPPM:vdx_brick");
     memory->create3d_offset(vdy_brick,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-			    nxlo_out,nxhi_out,"EVB_PPPM:vdy_brick");
+                            nxlo_out,nxhi_out,"EVB_PPPM:vdy_brick");
     memory->create3d_offset(vdz_brick,nzlo_out,nzhi_out,nylo_out,nyhi_out,
-			    nxlo_out,nxhi_out,"EVB_PPPM:vdz_brick");
+                            nxlo_out,nxhi_out,"EVB_PPPM:vdz_brick");
   }
 
   // summation coeffs
@@ -1472,39 +1802,23 @@ void EVB_PPPM::allocate()
   int tmp;
 
   fft1 = new FFT3d(lmp,world,nx_pppm,ny_pppm,nz_pppm,
-		   nxlo_fft,nxhi_fft,nylo_fft,nyhi_fft,nzlo_fft,nzhi_fft,
-		   nxlo_fft,nxhi_fft,nylo_fft,nyhi_fft,nzlo_fft,nzhi_fft,
-		   0,0,&tmp,collective_flag);
+                   nxlo_fft,nxhi_fft,nylo_fft,nyhi_fft,nzlo_fft,nzhi_fft,
+                   nxlo_fft,nxhi_fft,nylo_fft,nyhi_fft,nzlo_fft,nzhi_fft,
+                   0,0,&tmp,collective_flag,nonblocking_flag);
 
   fft2 = new FFT3d(lmp,world,nx_pppm,ny_pppm,nz_pppm,
-		   nxlo_fft,nxhi_fft,nylo_fft,nyhi_fft,nzlo_fft,nzhi_fft,
-		   nxlo_in,nxhi_in,nylo_in,nyhi_in,nzlo_in,nzhi_in,
-		   0,0,&tmp,collective_flag);
+                   nxlo_fft,nxhi_fft,nylo_fft,nyhi_fft,nzlo_fft,nzhi_fft,
+                   nxlo_in,nxhi_in,nylo_in,nyhi_in,nzlo_in,nzhi_in,
+                   0,0,&tmp,collective_flag,nonblocking_flag);
 
   remap = new Remap(lmp,world,
-		    nxlo_in,nxhi_in,nylo_in,nyhi_in,nzlo_in,nzhi_in,
-		    nxlo_fft,nxhi_fft,nylo_fft,nyhi_fft,nzlo_fft,nzhi_fft,
-		    1,0,0,FFT_PRECISION,collective_flag);
-
-  // create ghost grid object for rho and electric field communication
-
-  int (*procneigh)[2] = comm->procneigh;
-
-  cg = new GridComm(lmp,world,nx_pppm,ny_pppm,nz_pppm,
                     nxlo_in,nxhi_in,nylo_in,nyhi_in,nzlo_in,nzhi_in,
-                    nxlo_out,nxhi_out,nylo_out,nyhi_out,nzlo_out,nzhi_out);
-
-  cg->setup(ngc_buf1,ngc_buf2);
- 
-  if (differentiation_flag) npergrid = 1;
-  else npergrid = 3;
-    
-  memory->create(cg_buf1,npergrid*ngc_buf1,"pppm:gc_buf1");
-  memory->create(cg_buf2,npergrid*ngc_buf2,"pppm:gc_buf2");
+                    nxlo_fft,nxhi_fft,nylo_fft,nyhi_fft,nzlo_fft,nzhi_fft,
+                    1,0,0,FFT_PRECISION,collective_flag,nonblocking_flag);
 }
 
 /* ----------------------------------------------------------------------
-   deallocate memory that depends on # of K-vectors and order 
+   deallocate memory that depends on # of K-vectors and order
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::deallocate()
@@ -1514,9 +1828,9 @@ void EVB_PPPM::deallocate()
   memory->destroy3d_offset(env_density_brick,nzlo_out,nylo_out,nxlo_out);
   /*******************************************************/
   /*******************************************************/
-  
+
   memory->destroy3d_offset(density_brick,nzlo_out,nylo_out,nxlo_out);
- 
+
  if (differentiation_flag == 1) {
     memory->destroy3d_offset(u_brick,nzlo_out,nylo_out,nxlo_out);
     memory->destroy(sf_precoeff1);
@@ -1536,7 +1850,7 @@ void EVB_PPPM::deallocate()
   memory->sfree(work1);
   memory->sfree(work2);
   memory->destroy(vg);
-  
+
   if (triclinic == 0) {
     memory->destroy1d_offset(fkx,nxlo_fft);
     memory->destroy1d_offset(fky,nylo_fft);
@@ -1546,7 +1860,7 @@ void EVB_PPPM::deallocate()
     memory->destroy(fky);
     memory->destroy(fkz);
   }
-  
+
   memory->destroy(gf_b);
   memory->destroy2d_offset(rho1d,-order/2);
   memory->destroy2d_offset(drho1d,-order/2);
@@ -1556,12 +1870,11 @@ void EVB_PPPM::deallocate()
   delete fft1;
   delete fft2;
   delete remap;
-  delete cg;
 }
 
 /* ----------------------------------------------------------------------
    set global size of PPPM grid = nx,ny,nz_pppm
-   used for charge accumulation, FFTs, and electric field interpolation 
+   used for charge accumulation, FFTs, and electric field interpolation
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::set_grid_global()
@@ -1574,7 +1887,7 @@ void EVB_PPPM::set_grid_global()
   double yprd = domain->yprd;
   double zprd = domain->zprd;
   double zprd_slab = zprd*slab_volfactor;
-  
+
   // make initial g_ewald estimate
   // based on desired error and real space cutoff
   // fluid-occupied volume used to estimate real-space error
@@ -1584,11 +1897,11 @@ void EVB_PPPM::set_grid_global()
   bigint natoms = atom->natoms;
 
   if (!gewaldflag) {
-    if(accuracy <= 0.0) error->all(FLERR,"KSpace accuaracy must be > 0");
+    if(accuracy <= 0.0) error->all(FLERR,"KSpace accuracy must be > 0");
     g_ewald = accuracy*sqrt(natoms*cutoff*xprd*yprd*zprd) / (2.0*q2);
     if (g_ewald >= 1.0) g_ewald = (1.35 - 0.15*log(accuracy)) / cutoff;
     else g_ewald = sqrt(-log(g_ewald)) / cutoff;
-  } 
+  }
 
   // set optimal nx_pppm,ny_pppm,nz_pppm based on order and accuracy
   // nz_pppm uses extended zprd_slab instead of zprd
@@ -1600,9 +1913,10 @@ void EVB_PPPM::set_grid_global()
 
       h = h_x = h_y = h_z = 4.0/g_ewald;
       int count = 0;
-      while (1) {
+      while (true) {
 
-        // set grid dimension
+        // set grid dimensions
+
         nx_pppm = static_cast<int> (xprd/h_x);
         ny_pppm = static_cast<int> (yprd/h_y);
         nz_pppm = static_cast<int> (zprd_slab/h_z);
@@ -1611,12 +1925,13 @@ void EVB_PPPM::set_grid_global()
         if (ny_pppm <= 1) ny_pppm = 2;
         if (nz_pppm <= 1) nz_pppm = 2;
 
-        //set local grid dimension
+        // set local grid dimension
+
         int npey_fft,npez_fft;
         if (nz_pppm >= nprocs) {
           npey_fft = 1;
           npez_fft = nprocs;
-        } else procs2grid2d(nprocs,ny_pppm,nz_pppm,&npey_fft,&npez_fft);
+        } else procs2grid2d(nprocs,ny_pppm,nz_pppm,npey_fft,npez_fft);
 
         int me_y = me % npey_fft;
         int me_z = me / npey_fft;
@@ -1628,14 +1943,16 @@ void EVB_PPPM::set_grid_global()
         nzlo_fft = me_z*nz_pppm/npez_fft;
         nzhi_fft = (me_z+1)*nz_pppm/npez_fft - 1;
 
-        double df_kspace = compute_df_kspace();
+        // estimate Kspace force error
 
-        count++;
+        double df_kspace = compute_df_kspace();
 
         // break loop if the accuracy has been reached or
         // too many loops have been performed
 
+        count++;
         if (df_kspace <= accuracy) break;
+
         if (count > 500) error->all(FLERR, "Could not compute grid size");
         h *= 0.95;
         h_x = h_y = h_z = h;
@@ -1644,34 +1961,34 @@ void EVB_PPPM::set_grid_global()
     } else {
 
       double err;
-      h_x = h_y = h_z = 1/g_ewald;  
-    
+      h_x = h_y = h_z = 1/g_ewald;
+
       nx_pppm = static_cast<int> (xprd/h_x) + 1;
       ny_pppm = static_cast<int> (yprd/h_y) + 1;
       nz_pppm = static_cast<int> (zprd_slab/h_z) + 1;
 
       err = estimate_ik_error(h_x,xprd,natoms);
       while (err > accuracy) {
-	err = estimate_ik_error(h_x,xprd,natoms);
-	nx_pppm++;
-	h_x = xprd/nx_pppm;
+        err = estimate_ik_error(h_x,xprd,natoms);
+        nx_pppm++;
+        h_x = xprd/nx_pppm;
       }
 
       err = estimate_ik_error(h_y,yprd,natoms);
       while (err > accuracy) {
-	err = estimate_ik_error(h_y,yprd,natoms);
-	ny_pppm++;
-	h_y = yprd/ny_pppm;
+        err = estimate_ik_error(h_y,yprd,natoms);
+        ny_pppm++;
+        h_y = yprd/ny_pppm;
       }
-      
+
       err = estimate_ik_error(h_z,zprd_slab,natoms);
       while (err > accuracy) {
-	err = estimate_ik_error(h_z,zprd_slab,natoms);
-	nz_pppm++;
-	h_z = zprd_slab/nz_pppm;
+        err = estimate_ik_error(h_z,zprd_slab,natoms);
+        nz_pppm++;
+        h_z = zprd_slab/nz_pppm;
       }
     }
-    
+
     // scale grid for triclinic skew
 
     if (triclinic) {
@@ -1691,7 +2008,7 @@ void EVB_PPPM::set_grid_global()
   while (!factorable(nx_pppm)) nx_pppm++;
   while (!factorable(ny_pppm)) ny_pppm++;
   while (!factorable(nz_pppm)) nz_pppm++;
-  
+
   if (triclinic == 0) {
     h_x = xprd/nx_pppm;
     h_y = yprd/ny_pppm;
@@ -1706,14 +2023,22 @@ void EVB_PPPM::set_grid_global()
     h_y = 1.0/tmp[1];
     h_z = 1.0/tmp[2];
   }
-  
+
   if (nx_pppm >= OFFSET || ny_pppm >= OFFSET || nz_pppm >= OFFSET)
     error->all(FLERR,"PPPM grid is too large");
+
+#ifdef EVB_PPPM_DEBUG
+  // before g_ewald is recomputed and grid points are adjusted
+  // specify natoms = 28 and q2 = 6.4242
+  if (comm->me == 0)
+    printf("Using q2 = %f; natoms = %d for accuracy = %f: grid = %d %d %d\n",
+       q2, natoms, accuracy, nx_pppm, ny_pppm, nz_pppm);
+#endif // EVB_PPPM_DEBUG
 }
 
 /* ----------------------------------------------------------------------
    check if all factors of n are in list of factors
-   return 1 if yes, 0 if no 
+   return 1 if yes, 0 if no
 ------------------------------------------------------------------------- */
 
 int EVB_PPPM::factorable(int n)
@@ -1723,8 +2048,8 @@ int EVB_PPPM::factorable(int n)
   while (n > 1) {
     for (i = 0; i < nfactors; i++) {
       if (n % factors[i] == 0) {
-	n /= factors[i];
-	break;
+        n /= factors[i];
+        break;
       }
     }
     if (i == nfactors) return 0;
@@ -1765,7 +2090,7 @@ double EVB_PPPM::compute_qopt()
 {
   double qopt = 0.0;
   double *prd = (triclinic==0) ? domain->prd : domain->prd_lamda;
-  
+
   const double xprd = prd[0];
   const double yprd = prd[1];
   const double zprd = prd[2];
@@ -1939,130 +2264,60 @@ double EVB_PPPM::final_accuracy()
 }
 
 /* ----------------------------------------------------------------------
-   set local subset of PPPM/FFT grid that I own
-   n xyz lo/hi in = 3d brick that I own (inclusive)
-   n xyz lo/hi out = 3d brick + ghost cells in 6 directions (inclusive)
-   n xyz lo/hi fft = FFT columns that I own (all of x dim, 2d decomp in yz)
+   set params which determine which owned and ghost cells this proc owns
+   Grid3d uses these params to partition grid
+   also partition FFT grid
+     n xyz lo/hi fft = FFT columns that I own (all of x dim, 2d decomp in yz)
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::set_grid_local()
 {
-  // global indices of PPPM grid range from 0 to N-1
-  // nlo_in,nhi_in = lower/upper limits of the 3d sub-brick of
-  //   global PPPM grid that I own without ghost cells
-  // for slab PPPM, assign z grid as if it were not extended
+  // shift values for particle <-> grid mapping depend on stencil order
+  // add/subtract OFFSET to avoid int(-0.75) = 0 when want it to be -1
+  // used in particle_map() and make_rho() and fieldforce()
 
-  nxlo_in = static_cast<int> (comm->xsplit[comm->myloc[0]] * nx_pppm);
-  nxhi_in = static_cast<int> (comm->xsplit[comm->myloc[0]+1] * nx_pppm) - 1;
+  if (order % 2) shift = OFFSET + 0.5;
+  else shift = OFFSET;
 
-  nylo_in = static_cast<int> (comm->ysplit[comm->myloc[1]] * ny_pppm);
-  nyhi_in = static_cast<int> (comm->ysplit[comm->myloc[1]+1] * ny_pppm) - 1;
+  if (order % 2) shiftone = 0.0;
+  else shiftone = 0.5;
 
-  nzlo_in = static_cast<int>
-      (comm->zsplit[comm->myloc[2]] * nz_pppm/slab_volfactor);
-  nzhi_in = static_cast<int>
-      (comm->zsplit[comm->myloc[2]+1] * nz_pppm/slab_volfactor) - 1;
-
-  // nlower,nupper = stencil size for mapping particles to PPPM grid
+  // nlower/nupper = stencil size for mapping particles to grid
 
   nlower = -(order-1)/2;
   nupper = order/2;
 
-  // shift values for particle <-> grid mapping
-  // add/subtract OFFSET to avoid int(-0.75) = 0 when want it to be -1
+  // shiftatom lo/hi are passed to Grid3d to determine ghost cell extents
+  // shiftatom_lo = min shift on lo side
+  // shiftatom_hi = max shift on hi side
+  // for PPPMStagger, stagger value (0.0 or 0.5) also affects this
 
-  if (order % 2) shift = OFFSET + 0.5;
-  else shift = OFFSET;
-  if (order % 2) shiftone = 0.0;
-  else shiftone = 0.5;
-
-  // nlo_out,nhi_out = lower/upper limits of the 3d sub-brick of
-  //   global PPPM grid that my particles can contribute charge to
-  // effectively nlo_in,nhi_in + ghost cells
-  // nlo,nhi = global coords of grid pt to "lower left" of smallest/largest
-  //           position a particle in my box can be at
-  // dist[3] = particle position bound = subbox + skin/2.0 + qdist
-  //   qdist = offset due to TIP4P fictitious charge
-  //   convert to triclinic if necessary
-  // nlo_out,nhi_out = nlo,nhi + stencil size for particle mapping
-  // for slab PPPM, assign z grid as if it were not extended
-
-  double *prd,*sublo,*subhi;
-
-  if (triclinic == 0) {
-    prd = domain->prd;
-    boxlo = domain->boxlo;
-    sublo = domain->sublo;
-    subhi = domain->subhi;
-  } else {
-    prd = domain->prd_lamda;
-    boxlo = domain->boxlo_lamda;
-    sublo = domain->sublo_lamda;
-    subhi = domain->subhi_lamda;
+  if ((order % 2) && !stagger_flag) {
+    shiftatom_lo = 0.5;
+    shiftatom_hi = 0.5;
+  } else if ((order % 2) && stagger_flag) {
+    shiftatom_lo = 0.5;
+    shiftatom_hi = 0.5 + 0.5;
+  } else if ((order % 2 == 0) && !stagger_flag) {
+    shiftatom_lo = 0.0;
+    shiftatom_hi = 0.0;
+  } else if ((order % 2 == 0) && stagger_flag) {
+    shiftatom_lo = 0.0;
+    shiftatom_hi = 0.0 + 0.5;
   }
 
-  double xprd = prd[0];
-  double yprd = prd[1];
-  double zprd = prd[2];
-  double zprd_slab = zprd*slab_volfactor;
-
-  double dist[3];
-  double cuthalf = 0.5*neighbor->skin + qdist;
-  if (triclinic == 0) dist[0] = dist[1] = dist[2] = cuthalf;
-  else kspacebbox(cuthalf,&dist[0]);
-
-  int nlo,nhi;
-
-  nlo = static_cast<int> ((sublo[0]-dist[0]-boxlo[0]) *
-                            nx_pppm/xprd + shift) - OFFSET;
-  nhi = static_cast<int> ((subhi[0]+dist[0]-boxlo[0]) *
-                            nx_pppm/xprd + shift) - OFFSET;
-  nxlo_out = nlo + nlower;
-  nxhi_out = nhi + nupper;
-
-  nlo = static_cast<int> ((sublo[1]-dist[1]-boxlo[1]) *
-                            ny_pppm/yprd + shift) - OFFSET;
-  nhi = static_cast<int> ((subhi[1]+dist[1]-boxlo[1]) *
-                            ny_pppm/yprd + shift) - OFFSET;
-  nylo_out = nlo + nlower;
-  nyhi_out = nhi + nupper;
-
-  nlo = static_cast<int> ((sublo[2]-dist[2]-boxlo[2]) *
-                            nz_pppm/zprd_slab + shift) - OFFSET;
-  nhi = static_cast<int> ((subhi[2]+dist[2]-boxlo[2]) *
-                            nz_pppm/zprd_slab + shift) - OFFSET;
-  nzlo_out = nlo + nlower;
-  nzhi_out = nhi + nupper;
-
-  // for slab PPPM, change the grid boundary for processors at +z end
-  //   to include the empty volume between periodically repeating slabs
-  // for slab PPPM, want charge data communicated from -z proc to +z proc,
-  //   but not vice versa, also want field data communicated from +z proc to
-  //   -z proc, but not vice versa
-  // this is accomplished by nzhi_in = nzhi_out on +z end (no ghost cells)
-  // also insure no other procs use ghost cells beyond +z limit
-
-  if (slabflag) {
-    if (comm->myloc[2] == comm->procgrid[2]-1)
-      nzhi_in = nzhi_out = nz_pppm - 1;
-    nzhi_out = MIN(nzhi_out,nz_pppm-1);
-  }
-    
-  // decomposition of FFT mesh
+  // x-pencil decomposition of FFT mesh
   // global indices range from 0 to N-1
-  // proc owns entire x-dimension, clumps of columns in y,z dimensions
+  // each proc owns entire x-dimension, clumps of columns in y,z dimensions
   // npey_fft,npez_fft = # of procs in y,z dims
   // if nprocs is small enough, proc can own 1 or more entire xy planes,
   //   else proc owns 2d sub-blocks of yz plane
   // me_y,me_z = which proc (0-npe_fft-1) I am in y,z dimensions
   // nlo_fft,nhi_fft = lower/upper limit of the section
-  //   of the global FFT mesh that I own
+  //   of the global FFT mesh that I own in x-pencil decomposition
 
-  int npey_fft,npez_fft;
-  if (nz_pppm >= nprocs) {
-    npey_fft = 1;
-    npez_fft = nprocs;
-  } else procs2grid2d(nprocs,ny_pppm,nz_pppm,&npey_fft,&npez_fft);
+  int npey_fft = 1, npez_fft = nprocs;
+  procs2grid2d(nprocs, ny_pppm, nz_pppm, npey_fft, npez_fft);
 
   int me_y = me % npey_fft;
   int me_z = me / npey_fft;
@@ -2073,37 +2328,21 @@ void EVB_PPPM::set_grid_local()
   nyhi_fft = (me_y+1)*ny_pppm/npey_fft - 1;
   nzlo_fft = me_z*nz_pppm/npez_fft;
   nzhi_fft = (me_z+1)*nz_pppm/npez_fft - 1;
-
-  // PPPM grid pts owned by this proc, including ghosts
-
-  ngrid = (nxhi_out-nxlo_out+1) * (nyhi_out-nylo_out+1) *
-    (nzhi_out-nzlo_out+1);
-
-  // FFT grids owned by this proc, without ghosts
-  // nfft = FFT points in FFT decomposition on this proc
-  // nfft_brick = FFT points in 3d brick-decomposition on this proc
-  // nfft_both = greater of 2 values
-
-  nfft = (nxhi_fft-nxlo_fft+1) * (nyhi_fft-nylo_fft+1) *
-    (nzhi_fft-nzlo_fft+1);
-  int nfft_brick = (nxhi_in-nxlo_in+1) * (nyhi_in-nylo_in+1) *
-    (nzhi_in-nzlo_in+1);
-  nfft_both = MAX(nfft,nfft_brick);
 }
 
 /* ----------------------------------------------------------------------
-   pre-compute Green's function denominator expansion coeffs, Gamma(2n) 
+   pre-compute Green's function denominator expansion coeffs, Gamma(2n)
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::compute_gf_denom()
 {
   int k,l,m;
-  
+
   for (l = 1; l < order; l++) gf_b[l] = 0.0;
   gf_b[0] = 1.0;
-  
+
   for (m = 1; m < order; m++) {
-    for (l = m; l > 0; l--) 
+    for (l = m; l > 0; l--)
       gf_b[l] = 4.0 * (gf_b[l]*(l-m)*(l-m-0.5)-gf_b[l-1]*(l-m-1)*(l-m-1));
     gf_b[0] = 4.0 * (gf_b[0]*(l-m)*(l-m-0.5));
   }
@@ -2466,7 +2705,7 @@ void EVB_PPPM::compute_sf_precoeff()
 }
 
 /* ----------------------------------------------------------------------
-   ghost-swap to accumulate full density in brick decomposition 
+   ghost-swap to accumulate full density in brick decomposition
    remap density from 3d brick decomposition to FFT decomposition
 ------------------------------------------------------------------------- */
 
@@ -2482,7 +2721,7 @@ void EVB_PPPM::brick2fft()
   for (iz = nzlo_in; iz <= nzhi_in; iz++)
     for (iy = nylo_in; iy <= nyhi_in; iy++)
       for (ix = nxlo_in; ix <= nxhi_in; ix++)
-	density_fft[n++] = density_brick[iz][iy][ix];
+        density_fft[n++] = density_brick[iz][iy][ix];
 
   remap->perform(density_fft,density_fft,work1);
 }
@@ -2490,7 +2729,7 @@ void EVB_PPPM::brick2fft()
 /* ----------------------------------------------------------------------
    find center grid pt for each of my particles
    check that full stencil for the particle will fit in my 3d brick
-   store central grid pt indices in part2grid array 
+   store central grid pt indices in part2grid array
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::particle_map()
@@ -2498,7 +2737,7 @@ void EVB_PPPM::particle_map()
   const double boxlox = boxlo[0];
   const double boxloy = boxlo[1];
   const double boxloz = boxlo[2];
-  
+
   int nx,ny,nz;
 
   double **x = atom->x;
@@ -2506,7 +2745,7 @@ void EVB_PPPM::particle_map()
 
   int flag = 0;
   for (int i = 0; i < nlocal; i++) {
-    
+
     // (nx,ny,nz) = global coords of grid pt to "lower left" of charge
     // current particle coord can be outside global and local box
     // add/subtract OFFSET to avoid int(-0.75) = 0 when want it to be -1
@@ -2522,10 +2761,10 @@ void EVB_PPPM::particle_map()
     // check that entire stencil around nx,ny,nz will fit in my 3d brick
 
     if (nx+nlower < nxlo_out || nx+nupper > nxhi_out ||
-	ny+nlower < nylo_out || ny+nupper > nyhi_out ||
-	nz+nlower < nzlo_out || nz+nupper > nzhi_out) flag = 1;
+        ny+nlower < nylo_out || ny+nupper > nyhi_out ||
+        nz+nlower < nzlo_out || nz+nupper > nzhi_out) flag = 1;
   }
-  
+
   if (flag) error->all(FLERR,"Out of range atoms - cannot compute EVB_PPPM");
 }
 
@@ -2533,7 +2772,7 @@ void EVB_PPPM::particle_map()
    create discretized "density" on section of global grid due to my particles
    density(x,y,z) = charge "density" at grid points of my 3d brick
    (nxlo:nxhi,nylo:nyhi,nzlo:nzhi) is extent of my brick (including ghosts)
-   in global grid 
+   in global grid
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::make_rho()
@@ -2541,7 +2780,7 @@ void EVB_PPPM::make_rho()
   const double * const q = atom->q;
   const double * const * const x = atom->x;
   const int nlocal = atom->nlocal;
-  
+
   // set up clear 3d density array
   FFT_SCALAR * const * const * const db = &(density_brick[0]);
   memset(&(db[nzlo_out][nylo_out][nxlo_out]),0,ngrid*sizeof(FFT_SCALAR));
@@ -2554,7 +2793,7 @@ void EVB_PPPM::make_rho()
   // (nx,ny,nz) = global coords of grid pt to "lower left" of charge
   // (dx,dy,dz) = distance to "lower left" grid pt
   // (mx,my,mz) = global coords of moving stencil pt
-  
+
   if (order == 5) {
     for (int i = 0; i < nlocal; i++) {
       const double ddx = (x[i][0]- boxlox) * delxinv;
@@ -2568,10 +2807,10 @@ void EVB_PPPM::make_rho()
       part2grid[i][2] = nz;
       const FFT_SCALAR dx = nx+shiftone - ddx;
       const FFT_SCALAR dy = ny+shiftone - ddy;
-      const FFT_SCALAR dz = nz+shiftone - ddz; 
+      const FFT_SCALAR dz = nz+shiftone - ddz;
       part2grid_dr[i][0] = dx;
       part2grid_dr[i][1] = dy;
-      part2grid_dr[i][2] = dz; 
+      part2grid_dr[i][2] = dz;
 
       // Code specific to order = 5
       //compute_rho1d_thr(r1d,dx,dy,dz);
@@ -2605,16 +2844,16 @@ void EVB_PPPM::make_rho()
       rho1d[0][k] = rho_coeff[0][k] + rho_coeff[1][k]*dx + rho_coeff[2][k]*dx2 + rho_coeff[3][k]*dx3 + rho_coeff[4][k]*dx4;
       rho1d[1][k] = rho_coeff[0][k] + rho_coeff[1][k]*dy + rho_coeff[2][k]*dy2 + rho_coeff[3][k]*dy3 + rho_coeff[4][k]*dy4;
       rho1d[2][k] = rho_coeff[0][k] + rho_coeff[1][k]*dz + rho_coeff[2][k]*dz2 + rho_coeff[3][k]*dz3 + rho_coeff[4][k]*dz4;
-      
+
       const FFT_SCALAR z0 = delvolinv * q[i];
       for (int n = nlower; n <= nupper; n++) {
-	const FFT_SCALAR y0 = z0*rho1d[2][n];
-	for (int m = nlower; m <= nupper; m++) {
-	  const FFT_SCALAR x0 = y0*rho1d[1][m];
-	  for (int l = nlower; l <= nupper; l++) {
-	    db[n+nz][m+ny][l+nx] += x0*rho1d[0][l];
-	  }
-	}
+        const FFT_SCALAR y0 = z0*rho1d[2][n];
+        for (int m = nlower; m <= nupper; m++) {
+          const FFT_SCALAR x0 = y0*rho1d[1][m];
+          for (int l = nlower; l <= nupper; l++) {
+            db[n+nz][m+ny][l+nx] += x0*rho1d[0][l];
+          }
+        }
       }
     } // for(i<nlocal)
   } else {
@@ -2630,23 +2869,23 @@ void EVB_PPPM::make_rho()
       part2grid[i][2] = nz;
       const FFT_SCALAR dx = nx+shiftone - ddx;
       const FFT_SCALAR dy = ny+shiftone - ddy;
-      const FFT_SCALAR dz = nz+shiftone - ddz; 
+      const FFT_SCALAR dz = nz+shiftone - ddz;
       part2grid_dr[i][0] = dx;
       part2grid_dr[i][1] = dy;
       part2grid_dr[i][2] = dz;
 
-      // General order code 
+      // General order code
       compute_rho1d(dx,dy,dz);
-      
+
       const FFT_SCALAR z0 = delvolinv * q[i];
       for (int n = nlower; n <= nupper; n++) {
-	const FFT_SCALAR y0 = z0*rho1d[2][n];
-	for (int m = nlower; m <= nupper; m++) {
-	  const FFT_SCALAR x0 = y0*rho1d[1][m];
-	  for (int l = nlower; l <= nupper; l++) {
-	    db[n+nz][m+ny][l+nx] += x0*rho1d[0][l];
-	  }
-	}
+        const FFT_SCALAR y0 = z0*rho1d[2][n];
+        for (int m = nlower; m <= nupper; m++) {
+          const FFT_SCALAR x0 = y0*rho1d[1][m];
+          for (int l = nlower; l <= nupper; l++) {
+            db[n+nz][m+ny][l+nx] += x0*rho1d[0][l];
+          }
+        }
       }
 
     } // for (i<nlocal)
@@ -2654,13 +2893,17 @@ void EVB_PPPM::make_rho()
 }
 
 /* ----------------------------------------------------------------------
-   FFT-based Poisson solver 
+   FFT-based Poisson solver
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::poisson(int eflag, int vflag)
 {
+  TIMER_STAMP(EVB_PPPM, kspace_poisson);
+
   if (differentiation_flag == 1) poisson_ad(vflag);
   else poisson_ik(vflag);
+
+  TIMER_CLICK(EVB_PPPM, kspace_poisson);
 }
 
 /* ----------------------------------------------------------------------
@@ -2712,12 +2955,12 @@ void EVB_PPPM::poisson_ik(int vflag)
     work1[n++] *= scaleinv * greensfn[i];
     work1[n++] *= scaleinv * greensfn[i];
   }
-  
+
   if (triclinic) {
     poisson_ik_triclinic();
     return;
   }
-  
+
   // compute gradients of V(r) in each of 3 dims by transformimg -ik*V(k)
   // FFT leaves data in 3d brick decomposition
   // copy it into inner portion of vdx,vdy,vdz arrays
@@ -2880,7 +3123,7 @@ void EVB_PPPM::poisson_ad(int vflag)
 
   double scaleinv = 1.0/(nx_pppm*ny_pppm*nz_pppm);
   double s2 = scaleinv*scaleinv;
-  
+
   if (vflag) {
     n = 0;
     for (i = 0; i < nfft; i++) {
@@ -2893,7 +3136,7 @@ void EVB_PPPM::poisson_ad(int vflag)
     n = 0;
     for (i = 0; i < nfft; i++) {
       energy +=
-	s2 * greensfn[i] * (work1[n]*work1[n] + work1[n+1]*work1[n+1]);
+        s2 * greensfn[i] * (work1[n]*work1[n] + work1[n+1]*work1[n+1]);
       n += 2;
     }
   }
@@ -2926,7 +3169,7 @@ void EVB_PPPM::poisson_ad(int vflag)
 }
 
 /* ----------------------------------------------------------------------
-   interpolate from grid to get electric field & force on my particles 
+   interpolate from grid to get electric field & force on my particles
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::fieldforce()
@@ -2960,7 +3203,7 @@ void EVB_PPPM::fieldforce_ik()
   double **f = atom->f;
 
   int nlocal = atom->nlocal;
-  
+
   for (i = 0; i < nlocal; i++) {
     nx = part2grid[i][0];
     ny = part2grid[i][1];
@@ -2986,7 +3229,7 @@ void EVB_PPPM::fieldforce_ik()
         }
       }
     }
-    
+
     // convert E-field to force
 
     const double qfactor = force->qqrd2e * scale * q[i];
@@ -3091,7 +3334,7 @@ void EVB_PPPM::fieldforce_ad()
 }
 
 /* ----------------------------------------------------------------------
-   interpolate from grid to get electric field & force on my ENV particles 
+   interpolate from grid to get electric field & force on my ENV particles
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::fieldforce_env()
@@ -3271,7 +3514,7 @@ void EVB_PPPM::fieldforce_env_ad()
 void EVB_PPPM::pack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 {
   FFT_SCALAR *buf = (FFT_SCALAR *) vbuf;
-  
+
   int n = 0;
 
   if (flag == FORWARD_IK) {
@@ -3331,7 +3574,7 @@ void EVB_PPPM::pack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 void EVB_PPPM::unpack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 {
   FFT_SCALAR *buf = (FFT_SCALAR *) vbuf;
-  
+
   int n = 0;
 
   if (flag == FORWARD_IK) {
@@ -3415,10 +3658,10 @@ void EVB_PPPM::unpack_reverse_grid(int flag, void *vbuf, int nlist, int *list)
 }
 
 /* ----------------------------------------------------------------------
-   map nprocs to NX by NY grid as PX by PY procs - return optimal px,py 
+   map nprocs to NX by NY grid as PX by PY procs - return optimal px,py
 ------------------------------------------------------------------------- */
 
-void EVB_PPPM::procs2grid2d(int nprocs, int nx, int ny, int *px, int *py)
+void EVB_PPPM::procs2grid2d(int nprocs, int nx, int ny, int &px, int &py)
 {
   // loop thru all possible factorizations of nprocs
   // surf = surface area of largest proc sub-domain
@@ -3439,13 +3682,13 @@ void EVB_PPPM::procs2grid2d(int nprocs, int nx, int ny, int *px, int *py)
       boxy = ny/ipy;
       if (ny % ipy) boxy++;
       surf = boxx + boxy;
-      if (surf < bestsurf || 
-	  (surf == bestsurf && boxx*boxy > bestboxx*bestboxy)) {
-	bestsurf = surf;
-	bestboxx = boxx;
-	bestboxy = boxy;
-	*px = ipx;
-	*py = ipy;
+      if (surf < bestsurf ||
+          (surf == bestsurf && boxx*boxy > bestboxx*bestboxy)) {
+        bestsurf = surf;
+        bestboxx = boxx;
+        bestboxy = boxy;
+        px = ipx;
+        py = ipy;
       }
     }
     ipx++;
@@ -3454,11 +3697,11 @@ void EVB_PPPM::procs2grid2d(int nprocs, int nx, int ny, int *px, int *py)
 
 /* ----------------------------------------------------------------------
    charge assignment into rho1d
-   dx,dy,dz = distance of particle from "lower left" grid point 
+   dx,dy,dz = distance of particle from "lower left" grid point
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::compute_rho1d(const FFT_SCALAR &dx, const FFT_SCALAR &dy,
-			     const FFT_SCALAR &dz)
+                             const FFT_SCALAR &dz)
 {
   //if (order == 5) {
   if(false) { // disabled from LAMMPS Nov/21
@@ -3550,11 +3793,11 @@ void EVB_PPPM::compute_drho1d(const FFT_SCALAR &dx, const FFT_SCALAR &dy,
     FFT_SCALAR r1,r2,r3;
     for (int k = (1-order)/2; k <= order/2; k++) {
       r1 = r2 = r3 = ZEROF;
-      
+
       for (int l = order-2; l >= 0; l--) {
-	r1 = drho_coeff[l][k] + r1*dx;
-	r2 = drho_coeff[l][k] + r2*dy;
-	r3 = drho_coeff[l][k] + r3*dz;
+        r1 = drho_coeff[l][k] + r1*dx;
+        r2 = drho_coeff[l][k] + r2*dy;
+        r3 = drho_coeff[l][k] + r3*dz;
       }
       drho1d[0][k] = r1;
       drho1d[1][k] = r2;
@@ -3579,7 +3822,7 @@ void EVB_PPPM::compute_drho1d(const FFT_SCALAR &dx, const FFT_SCALAR &dy,
              |  0                       otherwise
               ---
   a coeffients are packed into the array rho_coeff to eliminate zeros
-  rho_coeff(l,((k+mod(n+1,2))/2) = a(l,k) 
+  rho_coeff(l,((k+mod(n+1,2))/2) = a(l,k)
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::compute_rho_coeff()
@@ -3590,22 +3833,22 @@ void EVB_PPPM::compute_rho_coeff()
   FFT_SCALAR **a;
   memory->create2d_offset(a,order,-order,order,"EVB_PPPM:a");
 
-  for (k = -order; k <= order; k++) 
+  for (k = -order; k <= order; k++)
     for (l = 0; l < order; l++)
       a[l][k] = 0.0;
-        
+
   a[0][0] = 1.0;
   for (j = 1; j < order; j++) {
     for (k = -j; k <= j; k += 2) {
       s = 0.0;
       for (l = 0; l < j; l++) {
-	a[l+1][k] = (a[l][k+1]-a[l][k-1]) / (l+1);
+        a[l+1][k] = (a[l][k+1]-a[l][k-1]) / (l+1);
 #ifdef FFT_SINGLE
-	s += powf(0.5,(float) l+1) *
-	  (a[l][k-1] + powf(-1.0,(float) l) * a[l][k+1]) / (l+1);
+        s += powf(0.5,(float) l+1) *
+          (a[l][k-1] + powf(-1.0,(float) l) * a[l][k+1]) / (l+1);
 #else
-	s += pow(0.5,(double) l+1) * 
-	  (a[l][k-1] + pow(-1.0,(double) l) * a[l][k+1]) / (l+1);
+        s += pow(0.5,(double) l+1) *
+          (a[l][k-1] + pow(-1.0,(double) l) * a[l][k+1]) / (l+1);
 #endif
       }
       a[0][k] = s;
@@ -3626,9 +3869,9 @@ void EVB_PPPM::compute_rho_coeff()
 
 /* ----------------------------------------------------------------------
    Slab-geometry correction term to dampen inter-slab interactions between
-   periodically repeating slabs.  Yields good approximation to 2D Ewald if 
-   adequate empty space is left between repeating slabs (J. Chem. Phys. 
-   111, 3155).  Slabs defined here to be parallel to the xy plane. 
+   periodically repeating slabs.  Yields good approximation to 2D Ewald if
+   adequate empty space is left between repeating slabs (J. Chem. Phys.
+   111, 3155).  Slabs defined here to be parallel to the xy plane.
 ------------------------------------------------------------------------- */
 
 void EVB_PPPM::slabcorr_cplx()
@@ -3650,9 +3893,9 @@ void EVB_PPPM::slabcorr_cplx()
     dipole_cplx    += q[i] * x[i][2];
     dipole_r2_cplx += q[i] * x[i][2] * x[i][2];
   }
-  
+
   // sum local contributions to get global dipole moment
-  
+
   double dipole_all    = 0.0;
   double dipole_r2_all = 0.0;
   MPI_Allreduce(&dipole_cplx,    &dipole_all,    1, MPI_DOUBLE, MPI_SUM, world);
@@ -3663,9 +3906,9 @@ void EVB_PPPM::slabcorr_cplx()
 
   // compute corrections
 
-  const double e_slabcorr = MY_2PI * (dipole_all * dipole_all - qsum * dipole_r2_all - 
-				      qsum * qsum * zprd * zprd / 12.0) / volume;
-  
+  const double e_slabcorr = MY_2PI * (dipole_all * dipole_all - qsum * dipole_r2_all -
+                                      qsum * qsum * zprd * zprd / 12.0) / volume;
+
   energy += qqrd2e * e_slabcorr / comm->nprocs;
 
   // add on force corrections
@@ -3709,9 +3952,9 @@ void EVB_PPPM::slabcorr_exch()
       qsum_exch      += q[iatm];
     }
   }
-  
+
   // sum local contributions to get global dipole moments
-  
+
   double tmp = 0.0;
   MPI_Allreduce(&dipole_cplx, &tmp, 1, MPI_DOUBLE, MPI_SUM, world);
   double dipole_all = dipole_env + tmp;
@@ -3719,7 +3962,7 @@ void EVB_PPPM::slabcorr_exch()
   tmp = 0.0;
   MPI_Allreduce(&dipole_r2_cplx, &tmp, 1, MPI_DOUBLE, MPI_SUM, world);
   double dipole_r2_all = dipole_r2_env + tmp;
-  
+
   tmp = dipole_exch;
   dipole_exch = 0.0;
   MPI_Allreduce(&tmp, &dipole_exch, 1, MPI_DOUBLE, MPI_SUM, world);
@@ -3817,13 +4060,13 @@ int EVB_PPPM::timing_3d(int n, double &time3d)
 }
 
 /* ----------------------------------------------------------------------
-   memory usage of local arrays 
+   memory usage of local arrays
 ------------------------------------------------------------------------- */
 
 double EVB_PPPM::memory_usage()
 {
   double bytes = nmax*3 * sizeof(double);
-  int nbrick = (nxhi_out-nxlo_out+1) * (nyhi_out-nylo_out+1) * 
+  int nbrick = (nxhi_out-nxlo_out+1) * (nyhi_out-nylo_out+1) *
     (nzhi_out-nzlo_out+1);
   if (differentiation_flag == 1) {
     bytes += 2 * nbrick * sizeof(FFT_SCALAR);
@@ -3833,8 +4076,8 @@ double EVB_PPPM::memory_usage()
   bytes += 6 * nfft_both * sizeof(double);
   bytes += nfft_both * sizeof(double);
   bytes += nfft_both*5 * sizeof(FFT_SCALAR);
-  
-  bytes += (double)(ngc_buf1 + ngc_buf2) * npergrid * sizeof(FFT_SCALAR);  
-  
+
+  bytes += (double)(ngc_buf1 + ngc_buf2) * npergrid * sizeof(FFT_SCALAR);
+
   return bytes;
 }

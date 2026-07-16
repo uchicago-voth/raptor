@@ -10,13 +10,13 @@ Text::Text(char *fname, FILE * fp_cfg)
 {
     nkey = nch = nword = 0;
     ignore = layer = 0;
-    
+
     memset(key,0,sizeof(char)*MAX_KEY);
     memset(key_content,0,sizeof(char)*MAX_KEY);
 
     buf_size = INC_BUF;
     buf = (char*) malloc(sizeof(char)*buf_size);
-    
+
     FILE *fp = fopen(fname,"r");
     if(!fp)
     {
@@ -38,7 +38,7 @@ Text::Text(char *fname, FILE * fp_cfg)
         if (key_content[i]) printf("%s",key_content[i]);
         printf("\n");
     }
-    
+
     //for(int i=0; i<nword; i++) printf("%s\n",buf+word[i]);
     /*****************************/
 }
@@ -63,12 +63,12 @@ void Text::read_file(char *fname, FILE *fin, FILE * fp_cfg)
     {
         line_id ++;
         char* p = strtok(line," \t\n");
-                
+
         //////////////////////////////////////////
         // blank or comment line
         //////////////////////////////////////////
         if(!p || *p==':') continue;
-        
+
         //////////////////////////////////////////
         // ignoring flag on
         //////////////////////////////////////////
@@ -94,15 +94,15 @@ void Text::read_file(char *fname, FILE *fin, FILE * fp_cfg)
             }
             continue;
         }
-        
+
         //////////////////////////////////////////
         // #include
         //////////////////////////////////////////
-        
+
         if(strcmp(p,"#include")==0)
         {
             if(ignore) continue;
-            
+
             p = strtok(NULL," \t\n");
             if(!p || *p==':')
             {
@@ -110,9 +110,9 @@ void Text::read_file(char *fname, FILE *fin, FILE * fp_cfg)
                 exit(1);
             }
 
-	    if(*p=='\"') p++;
-	    int _t = strlen(p)-1;
-	    if(p[_t]=='\"') p[_t]=0;
+            if(*p=='\"') p++;
+            int _t = strlen(p)-1;
+            if(p[_t]=='\"') p[_t]=0;
 
             FILE *fp = fopen(p,"r");
             if(!fp)
@@ -138,12 +138,12 @@ void Text::read_file(char *fname, FILE *fin, FILE * fp_cfg)
 
             int ikey;
             for(ikey = 0; ikey<nkey; ikey++) if(strcmp(key[ikey],p)==0) break;
-            
+
             int len1 = strlen(p);
             key[ikey] = (char*) malloc(sizeof(char)*(len1+1));
             strcpy(key[ikey],p);
             key[ikey][len1]=0;
-            
+
             p = strtok(NULL," \t\n");
             if(p && *p!=':')
             {
@@ -226,7 +226,7 @@ void Text::read_file(char *fname, FILE *fin, FILE * fp_cfg)
                 buf[nch+len]=0;
                 nch += (len+1);
                 nword ++;
-                
+
                 p = strtok(NULL," \t\n");
                 if(!p || *p==':') break;
             }

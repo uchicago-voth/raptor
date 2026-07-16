@@ -11,20 +11,20 @@
 class Text
 {
   public:
-    
+
   Text(char *, FILE *);
   ~Text();
-  
+
   int word[MAX_WORD];
   char* key[MAX_KEY];
   char* key_content[MAX_KEY];
   char* buf;
-  
+
   int buf_size;
   int nch;
   int nword;
   int nkey;
-  
+
   int ignore;
   int layer,fate;
   int level;

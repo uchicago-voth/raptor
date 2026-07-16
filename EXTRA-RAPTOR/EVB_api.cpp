@@ -13,11 +13,11 @@ using namespace LAMMPS_NS;
 void LAMMPS_NS::EVB_GetFixObj(Modify* modify, FixEVB **pFix)
 {
     (*pFix)==NULL;
-    
+
     for(int i=0; i<modify->nfix; i++)
     {
         Fix* pf = modify->fix[i];
-	if(strcmp(pf->style,"evb")==0)
+        if(strcmp(pf->style,"evb")==0)
         {
             (*pFix)=(FixEVB*)pf;
             break;

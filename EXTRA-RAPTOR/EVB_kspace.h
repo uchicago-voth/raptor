@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -35,7 +35,7 @@ class EVB_KSpace : public KSpace {
   virtual void init();
   void compute(int,int);
 
-  
+
   virtual void evb_setup() = 0;
   virtual void compute_env(int) = 0;
   virtual void compute_env_density(int) = 0;
@@ -62,9 +62,11 @@ class EVB_KSpace : public KSpace {
 
   double off_diag_energy;
   double off_diag_virial[6];
-  
+
   class EVB_Engine* evb_engine;
   class EVB_Timer* evb_timer;
+
+  int pivot_state;
 };
 
 }

@@ -5,14 +5,14 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Authors: Chris Knight 
+   Authors: Chris Knight
              Derived from USER-MULTIPRO package
 ------------------------------------------------------------------------- */
 
@@ -40,19 +40,19 @@ class MP_Verlet_SCI : public Integrate {
   void cleanup() {};
 
   /***********************************/
-  
+
   int is_master;          // Partition 0
   int is_master2;         // Partition 1; defaults to 0 if 1-partition calculation
   int is_master3;         // Partition 2; defaults to 0 if less than 3-partition calculation
 
   MPI_Comm block;
-  
+
   void comm_forward(); // Update coordinates on slave partitions
-  
+
   // class FixEVB* fix_evb;
-  
+
   /***********************************/
-  
+
  private:
   int triclinic;                    // 0 if domain is orthog, 1 if triclinic
   int torqueflag,extraflag;

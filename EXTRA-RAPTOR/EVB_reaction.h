@@ -23,8 +23,8 @@ class EVB_Reaction : protected Pointers, protected EVB_Pointers
   public:
     EVB_Reaction(class LAMMPS *, class EVB_Engine *);
   virtual ~EVB_Reaction();
-  
-  public:  
+
+  public:
   struct EVB_Path
   {
     int atom_count[3];
@@ -32,25 +32,25 @@ class EVB_Reaction : protected Pointers, protected EVB_Pointers
     int *first_part;
     int *second_part;
   };
-  
+
   int nPair;
-  char** name; 
+  char** name;
   int *backward;
   int *reactant_A;
   int *reactant_B;
   int *product_A;
   int *product_B;
-  int *nPath;  
+  int *nPath;
   EVB_Path **Path;
-  
+
   int data_reaction(char*, int*, int,  int);
   int get_reaction(char*);
   void setup();
   void change_atom(int,int,int);
-  
+
   _EVB_DEFINE_AVEC_POINTERS;
 };
-  
+
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/

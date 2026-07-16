@@ -75,25 +75,25 @@ void EVB_MatrixSCI::setup()
   nextra = cplx->nextra_coupling;
   natom = cplx->natom_cplx;
   list = cplx->cplx_list;
-  
+
   bool inc_atom = false;
   bool inc_state = false;
   bool inc_extra = false;
-  
+
   if(natom>max_atom) { max_atom = natom; inc_atom = true; }
   if(nstate>max_state) { max_state = nstate; inc_state = true; }
   if(nextra>max_extra) { max_extra = nextra; inc_extra = true; }
-  
+
   // Always allocate arrays on first pass with leading dimensions of at least 1
   if(first_time_setup) {
     inc_atom = true;
     first_time_setup = 0;
   }
-  
+
   // Reallocate memory space
-  
+
   if(inc_extra || inc_atom) memory->grow(f_extra_coupling,max_extra,max_atom, 3,"EVB_MatrixSCI:f_extra_coupling");
-  
+
   if(inc_state || inc_atom) {
     memory->grow(f_diagonal,max_state,max_atom,3,"EVB_MatrixSCI:f_diagonal");
     memory->grow(f_off_diagonal,max_state-1,max_atom,3,"EVB_MatrixSCI:f_off_diagonal");
@@ -110,22 +110,22 @@ void EVB_MatrixSCI::setup_mp()
   nextra = cplx->nextra_coupling;
   natom = cplx->natom_cplx;
   list = cplx->cplx_list;
-  
+
   bool inc_atom = false;
   bool inc_state = false;
   bool inc_extra = false;
-  
+
   if(natom>max_atom) { max_atom = natom; inc_atom = true; }
   if(nstate>max_state) { max_state = nstate; inc_state = true; }
   if(nextra>max_extra) { max_extra = nextra; inc_extra = true; }
-  
+
   // Skip force allocation if complex not owned
   if(!evb_engine->lb_cplx_owned[cplx->id]) return;
-  
+
   // Reallocate memory space
-  
+
   if(inc_extra || inc_atom) memory->grow(f_extra_coupling,max_extra,max_atom, 3,"EVB_MatrixSCI:f_extra_coupling");
-  
+
   if(inc_state || inc_atom) {
     memory->grow(f_diagonal,max_state,max_atom,3,"EVB_MatrixSCI:f_diagonal");
     memory->grow(f_off_diagonal,max_state-1,max_atom,3,"EVB_MatrixSCI:f_off_diagonal");
@@ -135,31 +135,31 @@ void EVB_MatrixSCI::setup_mp()
 /* ---------------------------------------------------------------------- */
 
 void EVB_MatrixSCI::clear(bool eflag, bool vflag, bool fflag)
-{  
+{
   size_e = EDIAG_NITEM;
   for(int i=0; i<nstate; i++) { e_diagonal[i]=energy+size_e; size_e+=EDIAG_NITEM; }
   e_repulsive = energy+size_e;
   size_e+=nstate;
   size_ediag = size_e - EDIAG_NITEM;
-  
+
   if(eflag) {
     memset(energy,0,sizeof(double)*size_e);
     if(nstate>1) memset(e_offdiag,0,sizeof(double)*(nstate-1)*EOFF_NITEM);
     if(nextra>0) memset(e_extra,0,sizeof(double)*nextra*EOFF_NITEM);
   }
-  
+
   if(vflag) {
-    if(nstate>0) memset(v_diagonal,0,sizeof(double)*nstate*6); 
+    if(nstate>0) memset(v_diagonal,0,sizeof(double)*nstate*6);
     if(nstate>1) memset(v_offdiag,0,sizeof(double)*(nstate-1)*6);
     if(nextra>0) memset(v_extra,0,sizeof(double)*nextra*6);
   }
-  
+
   if(fflag) {
     if(natom>0) for(int i=0; i<nstate; i++) {
-	memset(&(f_diagonal[i][0][0]),0,sizeof(double)*3*natom);
-	if(i<nstate-1) memset(&(f_off_diagonal[i][0][0]),0,sizeof(double)*3*natom);
+        memset(&(f_diagonal[i][0][0]),0,sizeof(double)*3*natom);
+        if(i<nstate-1) memset(&(f_off_diagonal[i][0][0]),0,sizeof(double)*3*natom);
       }
-    
+
     if(nextra>0 && natom>0) for(int i=0; i<nextra; i++) memset(&(f_extra_coupling[i][0][0]),0,sizeof(double)*3*natom);
   }
 }
@@ -169,33 +169,33 @@ void EVB_MatrixSCI::clear(bool eflag, bool vflag, bool fflag)
 /* ---------------------------------------------------------------------- */
 
 void EVB_MatrixSCI::clear_mp(bool eflag, bool vflag, bool fflag)
-{  
+{
   size_e = EDIAG_NITEM;
   for(int i=0; i<nstate; i++) { e_diagonal[i]=energy+size_e; size_e+=EDIAG_NITEM; }
   e_repulsive = energy+size_e;
   size_e+=nstate;
   size_ediag = size_e - EDIAG_NITEM;
-  
+
   if(eflag) {
     memset(energy,0,sizeof(double)*size_e);
     if(nstate>1) memset(e_offdiag,0,sizeof(double)*(nstate-1)*EOFF_NITEM);
     if(nextra>0) memset(e_extra,0,sizeof(double)*nextra*EOFF_NITEM);
   }
-  
+
   if(vflag) {
-    if(nstate>0) memset(v_diagonal,0,sizeof(double)*nstate*6); 
+    if(nstate>0) memset(v_diagonal,0,sizeof(double)*nstate*6);
     if(nstate>1) memset(v_offdiag,0,sizeof(double)*(nstate-1)*6);
     if(nextra>0) memset(v_extra,0,sizeof(double)*nextra*6);
   }
-  
+
   if(!evb_engine->lb_cplx_owned[cplx->id]) return;
-  
+
   if(fflag) {
     if(natom>0) for(int i=0; i<nstate; i++) {
-	memset(&(f_diagonal[i][0][0]),0,sizeof(double)*3*natom);
-	if(i<nstate-1) memset(&(f_off_diagonal[i][0][0]),0,sizeof(double)*3*natom);
+        memset(&(f_diagonal[i][0][0]),0,sizeof(double)*3*natom);
+        if(i<nstate-1) memset(&(f_off_diagonal[i][0][0]),0,sizeof(double)*3*natom);
       }
-    
+
     if(nextra>0 && natom>0) for(int i=0; i<nextra; i++) memset(&(f_extra_coupling[i][0][0]),0,sizeof(double)*3*natom);
   }
 }
@@ -205,11 +205,11 @@ void EVB_MatrixSCI::clear_mp(bool eflag, bool vflag, bool fflag)
 void EVB_MatrixSCI::copy_ev(bool vflag)
 {
   EVB_Matrix* src = (EVB_Matrix*)(evb_engine->full_matrix);
-  
+
   memcpy(energy, src->energy, sizeof(double)*size_e);
   if(nstate>1) memcpy(e_offdiag, src->e_offdiag, sizeof(double)*(nstate-1)*EOFF_NITEM);
   if(nextra>0) memcpy(e_extra, src->e_extra, sizeof(double)*nextra*EOFF_NITEM);
-  
+
   if(vflag) {
     memcpy(v_diagonal,src->v_diagonal,sizeof(double)*nstate*6);
     if(nstate>1) memcpy(v_offdiag,src->v_offdiag,sizeof(double)*(nstate-1)*6);
@@ -222,10 +222,10 @@ void EVB_MatrixSCI::copy_ev(bool vflag)
 void EVB_MatrixSCI::copy_force()
 {
   EVB_Matrix* src = (EVB_Matrix*)(evb_engine->full_matrix);
-  
+
   for(int i=0; i<natom; i++) {
     int id = list[i];
-    
+
     for(int n=0; n<nstate; n++) { VECTOR_COPY(f_diagonal[n][i],src->f_diagonal[n][id]); }
     for(int n=0; n<nstate-1; n++) { VECTOR_COPY(f_off_diagonal[n][i],src->f_off_diagonal[n][id]);}
     for(int n=0; n<nextra; n++) {VECTOR_COPY(f_extra_coupling[n][i],src->f_extra_coupling[n][id]);}
@@ -237,10 +237,10 @@ void EVB_MatrixSCI::copy_force()
 void EVB_MatrixSCI::accumulate_force()
 {
   EVB_Matrix* src = (EVB_Matrix*)(evb_engine->full_matrix);
-  
+
   for(int i=0; i<natom; i++) {
     int id = list[i];
-    
+
     for(int n=0; n<nstate; n++) { VECTOR_SELF_ADD(f_diagonal[n][i],src->f_diagonal[n][id]); }
     for(int n=0; n<nstate-1; n++) { VECTOR_SELF_ADD(f_off_diagonal[n][i],src->f_off_diagonal[n][id]);}
     for(int n=0; n<nextra; n++) {VECTOR_SELF_ADD(f_extra_coupling[n][i],src->f_extra_coupling[n][id]);}
@@ -255,17 +255,17 @@ void EVB_MatrixSCI::sci_save_ev_diag(int index, bool vflag)
   sci_e_diagonal[index][SCI_EDIAG_COUL] = evb_effpair->ecoul;
   if(evb_kspace) sci_e_diagonal[index][SCI_EDIAG_KSPACE] = evb_kspace->energy;
   else  sci_e_diagonal[index][SCI_EDIAG_KSPACE] = 0.0;
-  
+
   sci_e_diagonal[index][SCI_EDIAG_POT] = evb_effpair->energy + sci_e_diagonal[index][SCI_EDIAG_KSPACE];
 }
 
 void EVB_MatrixSCI::sci_save_ev_offdiag(bool is_extra,int index, bool vflag)
 {
   double *eoff,*voff;
-  
+
   if(is_extra) eoff = sci_e_extra+index;
   else eoff = sci_e_offdiag+index;
-  
+
   (*eoff) = evb_effpair->ecoul;
   if(evb_kspace) (*eoff) += evb_kspace->off_diag_energy;
 }
@@ -277,12 +277,12 @@ void EVB_MatrixSCI::sci_total_energy()
   int size = nstate*SCI_EDIAG_NITEM;
   MPI_Allreduce(sci_e_diagonal, sci_allreduce,size, MPI_DOUBLE,MPI_SUM,world);
   memcpy(sci_e_diagonal, sci_allreduce, sizeof(double)*size);
-  
+
   if(nstate>1) {
     MPI_Allreduce(sci_e_offdiag, sci_allreduce,nstate-1, MPI_DOUBLE,MPI_SUM,world);
     memcpy(sci_e_offdiag, sci_allreduce, sizeof(double)*(nstate-1));
   }
-  
+
   if(nextra>0) {
     MPI_Allreduce(sci_e_extra, sci_allreduce,nextra, MPI_DOUBLE,MPI_SUM,world);
     memcpy(sci_e_extra, sci_allreduce, sizeof(double)*nextra);
@@ -305,7 +305,7 @@ void EVB_MatrixSCI::compute_hellmann_feynman()
 
   for (int i=0;i<nstate;i++) {
     double **f_src = f_diagonal[i];
-    
+
     for(int j=0; j<natom; j++) {
       int id = list[j];
 
@@ -314,15 +314,15 @@ void EVB_MatrixSCI::compute_hellmann_feynman()
       f_des[id][2]+=f_src[j][2]*Cs2[i];
     }
   }
-  
+
   /*** Off-Diagonal elements ***/
-  
+
   int *parent = cplx->parent_id;
-  
+
   for (int i=0; i<nstate-1; i++) {
     double **f_src = f_off_diagonal[i];
     double C = 2*Cs[i+1]*Cs[parent[i+1]];
-  
+
     for(int j=0; j<natom; j++) {
       int id = list[j];
       f_des[id][0]+=f_src[j][0]*C;
@@ -330,13 +330,13 @@ void EVB_MatrixSCI::compute_hellmann_feynman()
       f_des[id][2]+=f_src[j][2]*C;
     }
   }
-  
+
   /*** Extra couplings ***/
-  
+
   for (int i=0; i<nextra; i++) {
     double **f_src = f_extra_coupling[i];
     double C = 2*Cs[extra_j[i]]*Cs[extra_i[i]];
-  
+
     for(int j=0; j<natom; j++) {
       int id = list[j];
       f_des[id][0]+=f_src[j][0]*C;
@@ -391,11 +391,11 @@ void EVB_MatrixSCI::sci_comm_energy_mp(int index)
     for(int j=0; j<cplx->nstate-1; j++) for(int k=0; k<EOFF_NITEM; k++) comm_ek[n++] = e_offdiag[j][k];
     for(int j=0; j<cplx->nextra_coupling; j++) for(int k=0; k<EOFF_NITEM; k++) comm_ek[n++] = e_extra[j][k];
     if(n != size) error->universe_one(FLERR,"n != size in sci_comm_energy_mp()");
-    
+
     // Send data
     MPI_Send(&(comm_ek[0]), size, MPI_DOUBLE, 0, 0, block);
   }
-  
+
 }
 
 
@@ -404,11 +404,11 @@ void EVB_MatrixSCI::sci_comm_energy_mp(int index)
 void EVB_MatrixSCI::copy_ev_full(bool vflag)
 {
   EVB_Matrix* src = (EVB_Matrix*)(evb_engine->full_matrix);
-  
+
   memcpy(src->energy, energy, sizeof(double)*size_e);
   if(nstate>1) memcpy(src->e_offdiag, e_offdiag, sizeof(double)*(nstate-1)*EOFF_NITEM);
   if(nextra>0) memcpy(src->e_extra, e_extra, sizeof(double)*nextra*EOFF_NITEM);
-  
+
   if(vflag) {
     memcpy(src->v_diagonal,v_diagonal,sizeof(double)*nstate*6);
     if(nstate>1) memcpy(src->v_offdiag,v_offdiag,sizeof(double)*(nstate-1)*6);
@@ -421,10 +421,10 @@ void EVB_MatrixSCI::copy_ev_full(bool vflag)
 void EVB_MatrixSCI::copy_force_full()
 {
   EVB_Matrix* src = (EVB_Matrix*)(evb_engine->full_matrix);
-  
+
   for(int i=0; i<natom; i++) {
     int id = list[i];
-    
+
     for(int n=0; n<nstate; n++) { VECTOR_COPY(src->f_diagonal[n][id], f_diagonal[n][i]); }
     for(int n=0; n<nstate-1; n++) { VECTOR_COPY(src->f_off_diagonal[n][id], f_off_diagonal[n][i]);}
     for(int n=0; n<nextra; n++) {VECTOR_COPY(src->f_extra_coupling[n][id],f_extra_coupling[n][i]);}

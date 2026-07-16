@@ -1,0 +1,375 @@
+LAMMPS (30 Mar 2026 - Development - patch_3Nov2022-16974-gc064c7cfc3-modified)
+# MS-EVB simulation: ClC protein
+# Continue simulation
+# Zhi (Shane) Yue, Dec-2022
+
+####################
+# Assign variables #
+####################
+
+variable name    string 1ots        # system name
+variable temp    string 300.0       # temperature, K   for real unit
+variable pres    string 1.0         # pressure,    atm for real unit
+variable lstep   string 1.0         # step length, fs  for real unit
+variable mdstep  index  100         # MD steps
+variable ene_frq index  10          # frequency of printing thermodynamic info (T, E, p...)
+variable rst_frq string 100         # frequency of writing  restart file
+variable trj_frq string 1000        # frequency of writing  trajectory
+
+variable cutcoul index 12.0         # real-space Coulombic cutoff
+
+variable tdamp equal ${lstep}*100.0 # how rapidly (in time units) the temperature is relaxed
+variable tdamp equal 1.0*100.0 
+variable pdamp string 1000.0        # how rapidly (in time units) the pressure    is relaxed
+
+variable kspace_cplx     index no
+variable partial_offload index yes
+variable mp_state        index 3    # use state decomposition with fix evb with multiple partitions
+
+##################
+# Basic settings #
+##################
+
+units     real  # unit style (real: Angstrom, femtosecond, kcal/mol, Kelvin, atmosphere ...)
+dimension 3     # 3D simulation
+boundary  p p p # periodic in x/y/z
+
+###################
+# Bonded settings #
+###################
+
+atom_style     full                  # atom style; molecular+charge for bio-molecules
+bond_style     hybrid harmonic morse # harmonic+morse potentials for bond
+angle_style    charmm                # charmm         potential  for angle (including Urey-Bradley term)
+dihedral_style charmm                # charmm         potential  for dihedral
+improper_style harmonic              # harmonic       potential  for improper
+
+#####################
+# Read restart file #
+#####################
+
+read_restart  md.restart # read restart file
+Reading restart file ...
+  restart file = 3 Nov 2022, LAMMPS = 30 Mar 2026
+  restoring atom style full from restart
+  orthogonal box = (-53.159066 -53.546299 -40.30167) to (53.140934 52.883701 40.27833)
+  2 by 2 by 1 MPI processor grid
+  restoring pair style lj/charmm/coul/long from restart
+  restoring bond style hybrid from restart
+  restoring angle style charmm from restart
+  restoring dihedral style charmm from restart
+  restoring improper style harmonic from restart
+  66851 atoms
+  55861 bonds
+  74706 angles
+  107059 dihedrals
+  2409 impropers
+Finding 1-2 1-3 1-4 neighbors ...
+  special bond factors lj:    0        0        0       
+  special bond factors coul:  0        0        0       
+     4 = max # of 1-2 neighbors
+     9 = max # of 1-3 neighbors
+    19 = max # of 1-4 neighbors
+    21 = max # of special neighbors
+  special bonds CPU = 0.010 seconds
+  read_restart CPU = 0.051 seconds
+
+######################
+# Nonbonded settings #
+######################
+
+pair_style   lj/charmm/coul/long 10.0 12.0 ${cutcoul} # LJ with potential switch + long-range Coulombics
+pair_style   lj/charmm/coul/long 10.0 12.0 12.0 
+pair_modify  mix arithmetic                           # Eps_ij = sqrt(Eps_i * Eps_j), Rmin_ij = (Rmin_i + Rmin_j) / 2
+kspace_style pppm 1e-5                                # particle-particle particle-mesh solver
+neighbor     2.0 bin                                  # cutnb = ctofnb + 2.0 (for units = real), may be increased to 3.0 for GPU runs
+neigh_modify delay 5 every 1 check yes one 10000      # update pairwise neighbor list heuristically
+
+#kspace_modify diff ad
+
+special_bonds charmm          # invoke 1-2,1-3,1-4 exclusion for CHARMM FF
+
+##################################
+# CMAP (read after restart file) #
+##################################
+
+fix        cmap all cmap charmm22.cmap # enable CHARMM CMAP
+Reading CMAP parameters from: charmm22.cmap
+Reading cmap grid potential file charmm22.cmap with DATE: 2016-09-26
+Resetting global fix info from restart file:
+  fix style: cmap, fix ID: cmap
+Resetting peratom fix info from restart file:
+  fix style: cmap, fix ID: cmap
+fix_modify cmap energy yes             # add CMAP energy to the total potential energy
+
+#################################################################
+# User-defined bonded FF coefficients (read after restart file) #
+#################################################################
+
+include bond_coeff.inp
+bond_coeff       1      harmonic        250            1.49                # C    CP1
+bond_coeff       2      harmonic        250            1.49                # C    CT1
+bond_coeff       3      harmonic        250            1.49                # C    CT2
+bond_coeff       4      harmonic        260            1.3                 # C    N
+bond_coeff       5      harmonic        463            1.365               # C    NC2
+bond_coeff       6      harmonic        370            1.345               # C    NH1
+bond_coeff       7      harmonic        620            1.23                # C    O
+bond_coeff       8      harmonic        305            1.375               # CA   CA
+bond_coeff       9      harmonic        305            1.368               # CA   CPT
+bond_coeff      10      harmonic        230            1.49                # CA   CT2
+bond_coeff      11      harmonic        350            1.365               # CA   CY
+bond_coeff      12      harmonic        340            1.08                # CA   HP
+bond_coeff      13      harmonic        270            1.37                # CA   NY
+bond_coeff      14      harmonic        334.3          1.411               # CA   OH1
+bond_coeff      15      harmonic        200            1.522               # CC   CT2
+bond_coeff      16      harmonic        430            1.36                # CC   NH2
+bond_coeff      17      harmonic        650            1.23                # CC   O
+bond_coeff      18      harmonic        525            1.26                # CC   OC
+bond_coeff      19      harmonic        200            1.522               # CD   CT2
+bond_coeff      20      harmonic        750            1.22                # CD   OB
+bond_coeff      21      harmonic        230            1.4                 # CD   OH1
+bond_coeff      22      harmonic        440            1.34                # CEL1 CEL1
+bond_coeff      23      harmonic        365            1.502               # CEL1 CTL2
+bond_coeff      24      harmonic        360.5          1.1                 # CEL1 HEL1
+bond_coeff      25      harmonic        200            1.522               # CL   CTL2
+bond_coeff      26      harmonic        750            1.22                # CL   OBL
+bond_coeff      27      harmonic        150            1.334               # CL   OSL
+bond_coeff      28      harmonic        222.5          1.527               # CP1  CP2
+bond_coeff      29      harmonic        330            1.08                # CP1  HB
+bond_coeff      30      harmonic        320            1.434               # CP1  N
+bond_coeff      31      harmonic        222.5          1.537               # CP2  CP2
+bond_coeff      32      harmonic        222.5          1.537               # CP2  CP3
+bond_coeff      33      harmonic        309            1.111               # CP2  HA
+bond_coeff      34      harmonic        309            1.111               # CP3  HA
+bond_coeff      35      harmonic        320            1.455               # CP3  N
+bond_coeff      36      harmonic        410            1.36                # CPH1 CPH1
+bond_coeff      37      harmonic        229.63         1.5                 # CPH1 CT2
+bond_coeff      38      harmonic        365            1.083               # CPH1 HR3
+bond_coeff      39      harmonic        400            1.38                # CPH1 NR1
+bond_coeff      40      harmonic        400            1.38                # CPH1 NR2
+bond_coeff      41      harmonic        340            1.09                # CPH2 HR1
+bond_coeff      42      harmonic        400            1.36                # CPH2 NR1
+bond_coeff      43      harmonic        400            1.32                # CPH2 NR2
+bond_coeff      44      harmonic        360            1.4                 # CPT  CPT
+bond_coeff      45      harmonic        350            1.44                # CPT  CY
+bond_coeff      46      harmonic        270            1.375               # CPT  NY
+bond_coeff      47      harmonic        222.5          1.5                 # CT1  CT1
+bond_coeff      48      harmonic        222.5          1.538               # CT1  CT2
+bond_coeff      49      harmonic        222.5          1.538               # CT1  CT3
+bond_coeff      50      harmonic        309            1.111               # CT1  HA
+bond_coeff      51      harmonic        330            1.08                # CT1  HB
+bond_coeff      52      harmonic        320            1.43                # CT1  NH1
+bond_coeff      53      harmonic        240            1.455               # CT1  NH2
+bond_coeff      54      harmonic        428            1.42                # CT1  OH1
+bond_coeff      55      harmonic        222.5          1.53                # CT2  CT2
+bond_coeff      56      harmonic        222.5          1.528               # CT2  CT3
+bond_coeff      57      harmonic        230            1.51                # CT2  CY
+bond_coeff      58      harmonic        309            1.111               # CT2  HA
+bond_coeff      59      harmonic        330            1.08                # CT2  HB
+bond_coeff      60      harmonic        261            1.49                # CT2  NC2
+bond_coeff      61      harmonic        320            1.43                # CT2  NH1
+bond_coeff      62      harmonic        200            1.48                # CT2  NH3
+bond_coeff      63      harmonic        428            1.42                # CT2  OH1
+bond_coeff      64      harmonic        198            1.818               # CT2  S
+bond_coeff      65      harmonic        322            1.111               # CT3  HA
+bond_coeff      66      harmonic        320            1.43                # CT3  NH1
+bond_coeff      67      harmonic        240            1.816               # CT3  S
+bond_coeff      68      harmonic        222.5          1.538               # CTL1 CTL2
+bond_coeff      69      harmonic        309            1.111               # CTL1 HAL1
+bond_coeff      70      harmonic        340            1.43                # CTL1 OSL
+bond_coeff      71      harmonic        222.5          1.53                # CTL2 CTL2
+bond_coeff      72      harmonic        222.5          1.528               # CTL2 CTL3
+bond_coeff      73      harmonic        309            1.111               # CTL2 HAL2
+bond_coeff      74      harmonic        261            1.51                # CTL2 NH3L
+bond_coeff      75      harmonic        340            1.43                # CTL2 OSL
+bond_coeff      76      harmonic        322            1.111               # CTL3 HAL3
+bond_coeff      77      harmonic        440            0.997               # H    NH1
+bond_coeff      78      harmonic        480            1                   # H    NH2
+bond_coeff      79      harmonic        466            1                   # H    NR1
+bond_coeff      80      harmonic        465            0.976               # H    NY
+bond_coeff      81      morse           143.003        1.8           0.975 # H    OH1
+bond_coeff      82      harmonic        455            1                   # HC   NC2
+bond_coeff      83      harmonic        403            1.04                # HC   NH3
+bond_coeff      84      harmonic        410            1.04                # HCL  NH3L
+bond_coeff      85      harmonic        275            1.325               # HS   S
+bond_coeff      86      harmonic        529.581        1.012               # HT   OT
+bond_coeff      87      morse           79.086356      2.083387      0.98  # HTH  OTH
+bond_coeff      88      harmonic        580            1.48                # O2L  PL
+bond_coeff      89      harmonic        270            1.6                 # OSL  PL
+
+####################################################################
+# User-defined nonbonded FF coefficients (read after restart file) #
+####################################################################
+
+#include pair_coeff.inp
+
+##################
+# Specify groups #
+##################
+
+group    CA   type 12 13 19             # Ca atoms (CT1, CT2, CP1)
+1952 atoms in group CA
+group    BB   type 10 12 13 19 24 27 28 # backbone atoms (C, CT1, CT2, CP1, N, NH1, NH2)
+3812 atoms in group BB
+group    WAT  type 4 36                 # waters (HT, OT)
+32862 atoms in group WAT
+group    ION  type 53                   # ions (CLA)
+17 atoms in group ION
+group    H3O  type 54 55                # hydronium (OTH, HTH)
+4 atoms in group H3O
+group    SOLV union WAT ION H3O         # solvent
+32880 atoms in group SOLV
+group    SOLU id 1:13597                # solute
+13597 atoms in group SOLU
+group    PROA id 1:6827                 # solute, chain A
+6827 atoms in group PROA
+group    PROB id 6828:13597             # solute, chain B
+6770 atoms in group PROB
+group    MEMB subtract all SOLU SOLV    # membrane
+20374 atoms in group MEMB
+
+variable hydr atom "mass == 1.008"      # assgin hydrogen mass to a variable
+group    HATM variable hydr             # hydrogen atoms
+41252 atoms in group HATM
+group    HEAV subtract SOLU HATM        # solute heavy atoms
+6642 atoms in group HEAV
+
+group    RXNR id 2887 2904 2930 2942 2959 2979 3003 3024 3038 3057 3076                  6830 6854 6878 6895 6914 6933 6957 6974 6993 7012 7027 7051 7063 7085 7101                  9690 9707 9733 9745 9762 9782 9806 9827 9841 9860 9879 # Ca atoms of solute enclosing the PT pathway (chain A: 204-214; chain B: 18-32, 204-214)
+37 atoms in group RXNR
+group    REST subtract CA RXNR                                          # Ca atoms to be restrained in MD
+1915 atoms in group REST
+
+###############
+# MD settings #
+###############
+
+timestep       ${lstep}                                  # step length
+timestep       1.0                                  
+
+#thermo_style   multi                                     # style of printing thermodynamic info.
+thermo_style   custom step temp pe etotal press cpu
+thermo_modify  flush yes                                 # invokes a flush operation after thermodynamic info. is written to the log file
+thermo         ${ene_frq}                                # compute & print thermodynamic info.
+thermo         10                                
+
+fix            rca REST spring/self 2.4                  # restrain solute Ca atoms
+Resetting peratom fix info from restart file:
+  fix style: spring/self, fix ID: rca
+
+fix            nvt all nvt temp ${temp} ${temp} ${tdamp} # run under NVT ensemble
+fix            nvt all nvt temp 300.0 ${temp} ${tdamp} 
+fix            nvt all nvt temp 300.0 300.0 ${tdamp} 
+fix            nvt all nvt temp 300.0 300.0 100 
+Resetting global fix info from restart file:
+  fix style: nvt, fix ID: nvt
+
+fix            evb all evb evb.cfg evb.out evb.top partial_offload=${partial_offload} kspace_cplx=${kspace_cplx}  # call MS-EVB
+fix            evb all evb evb.cfg evb.out evb.top partial_offload=yes kspace_cplx=${kspace_cplx}  
+fix            evb all evb evb.cfg evb.out evb.top partial_offload=yes kspace_cplx=no  
+-------------------------------------------------------------------
+[EVB] Copyright VOTH GROUP   Version 2022 Update3, for LAMMPS 3Nov2022
+-------------------------------------------------------------------
+EVB Command: "fix evb all evb evb.cfg evb.out evb.top partial_offload=yes kspace_cplx=no"
+
+[EVB] Build and store the EVB parameters
+[EVB]   Build EVB molecule types
+[EVB]   Build EVB reactions and paths
+[EVB]   Build EVB kernel chains
+[EVB]   Build EVB off-diagonals
+[EVB]   Build EVB repulsive terms
+[EVB]  1 reaction center(s) found.
+[EVB]   Read extensible parameters
+[EVB] 783/783 parameters were read
+
+-------------------------------------------------------------------
+Resetting peratom fix info from restart file:
+  fix style: evb, fix ID: evb
+
+dump           trj all custom ${trj_frq} md.lammpstrj                        id type mol x y z q               # style for writing trajectory
+dump           trj all custom 1000 md.lammpstrj                        id type mol x y z q               
+dump_modify    trj sort id                               # modify dump settings
+
+#restart        ${rst_frq} md.restart1 md.restart2        # style for writing restart file
+
+reset_timestep 0
+
+run            ${mdstep}                                 # run MD for specified steps
+run            100                                 
+EVB_PPPM initialization ...
+WARNING: accuracy_relative 0.000010 two_charge_force 332.063710 accuracy 0.003321
+ (src/RAPTOR/EVB_pppm.cpp:380)
+  using 12-bit tables for long-range coulomb
+  G vector (1/distance) = 0.23943346
+  grid = 60 60 48
+  stencil order = 5
+  estimated absolute RMS force accuracy = 0.0038679166
+  estimated relative force accuracy = 1.1648116e-05
+  using double precision KISS FFT
+  3d grid and FFT values/proc = 75295 43200
+Generated 1485 of 1485 mixed pair_coeff terms from arithmetic mixing rule
+All restart file global fix info was re-assigned
+All restart file peratom fix info was re-assigned
+Neighbor list info ...
+  update: every = 1 steps, delay = 5 steps, check = yes
+  max neighbors/atom: 10000, page size: 100000
+  master list distance cutoff = 14
+  ghost atom cutoff = 14
+  binsize = 7, bins = 16 16 12
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair lj/charmm/coul/long, perpetual
+      attributes: half, newton on
+      pair build: half/bin/newton
+      stencil: half/bin/3d
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 101.5 | 102.3 | 103.5 Mbytes
+   Step          Temp          PotEng         TotEng         Press           CPU      
+         0   299.80375     -125326.51     -65585.47       2929.229       0            
+        10   302.06964     -125800.52     -65607.963      2942.0519      2.8270893    
+        20   300.03557     -125386.37     -65599.131      2929.0684      6.0076233    
+        30   299.88959     -125342.01     -65583.863      2936.9743      8.8889378    
+        40   299.93296     -125359.57     -65592.781      2932.3733      11.962689    
+        50   301.47812     -125705.58     -65630.895      2943.351       14.823585    
+        60   300.16848     -125476.55     -65662.836      2931.1531      18.086404    
+        70   300.73641     -125600.2      -65673.316      2934.1482      21.332891    
+        80   300.59809     -125570.1      -65670.775      2928.1583      24.318218    
+        90   299.11745     -125291.89     -65687.612      2900.4665      27.64556     
+       100   300.42501     -125599.39     -65734.556      2919.9685      30.988097    
+Loop time of 30.9881 on 4 procs for 100 steps with 66851 atoms
+
+Performance: 0.279 ns/day, 86.078 hours/ns, 3.227 timesteps/s, 215.731 katom-step/s
+98.9% CPU use with 4 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0          | 0          | 0          |   0.0 |  0.00
+Bond    | 0          | 0          | 0          |   0.0 |  0.00
+Kspace  | 0          | 0          | 0          |   0.0 |  0.00
+Neigh   | 1.3026     | 1.3029     | 1.3032     |   0.0 |  4.20
+Comm    | 0.052015   | 0.053074   | 0.054732   |   0.5 |  0.17
+Output  | 0.002091   | 0.0021304  | 0.0022074  |   0.1 |  0.01
+Modify  | 29.614     | 29.616     | 29.617     |   0.0 | 95.57
+Other   |            | 0.01411    |            |       |  0.05
+
+Nlocal:        16712.8 ave       17036 max       16287 min
+Histogram: 1 0 0 0 1 0 0 0 1 1
+Nghost:        30049.2 ave       30412 max       29578 min
+Histogram: 1 0 0 0 0 1 1 0 0 1
+Neighs:    8.74212e+06 ave 9.03084e+06 max 8.56958e+06 min
+Histogram: 1 0 2 0 0 0 0 0 0 1
+
+Total # of neighbors = 34968474
+Ave neighs/atom = 523.08079
+Ave special neighs/atom = 6.579378
+Neighbor list builds = 6
+Dangerous builds = 0
+
+write_dump     all custom final.dump id type q x y z fx fy fz modify sort id
+
+#write_restart  md.restart                                # write (final) restart file
+#write_data     md.data pair ij                           # write (final) data file with i-j pair coefficient info.
+
+#unfix          rca                                       # delete fixes applied during MD
+#unfix          nvt
+#unfix          evb                                       # MUST unfix EVB after 'write_restart'
+Total wall time: 0:00:31

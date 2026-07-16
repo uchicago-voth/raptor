@@ -30,9 +30,9 @@ class EVB_List : protected Pointers, protected EVB_Pointers
   public:
     EVB_List(class LAMMPS *, class EVB_Engine *);
     virtual ~EVB_List();
-  
+
   public:
-  
+
   struct SubPairList
   {
       int inum;
@@ -40,24 +40,24 @@ class EVB_List : protected Pointers, protected EVB_Pointers
       int *numneigh;
       int **firstneigh;
   };
-  
+
   class NeighList *save_pairlist;
 
   int npair_cpl, max_inum;
   SubPairList sys_pair, env_pair, evb_pair;
-  
+
   int n_sys_bond, n_env_bond, n_evb_bond;
   int **sys_bond, **env_bond, **evb_bond;
   int max_bond;
-  
+
   int n_sys_angle, n_env_angle, n_evb_angle;
   int **sys_angle, **env_angle, **evb_angle;
   int max_angle;
-  
+
   int n_sys_dihedral, n_env_dihedral, n_evb_dihedral;
   int **sys_dihedral, **env_dihedral, **evb_dihedral;
   int max_dihedral;
-  
+
   int n_sys_improper, n_env_improper, n_evb_improper;
   int **sys_improper, **env_improper, **evb_improper;
   int max_improper;
@@ -78,7 +78,9 @@ class EVB_List : protected Pointers, protected EVB_Pointers
   void sci_split_env();
   void sci_split_env_omp();
   void multi_combine();
-  
+
+  int env_list_changed;
+
 #ifdef DLEVB_MODEL_SUPPORT
   SubPairList evb_lj_pair;
   void change_pairlist(int);
@@ -86,7 +88,7 @@ class EVB_List : protected Pointers, protected EVB_Pointers
 #endif
 
 };
-  
+
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/

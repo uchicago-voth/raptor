@@ -52,7 +52,7 @@ EVB_Rep_Hydronium::~EVB_Rep_Hydronium()
 
 int EVB_Rep_Hydronium::data_rep(char *buf, int *offset, int start, int end)
 {
-  int t=start;  
+  int t=start;
 
   FILE * fp = evb_engine->fp_cfg_out;
 
@@ -62,9 +62,9 @@ int EVB_Rep_Hydronium::data_rep(char *buf, int *offset, int start, int end)
     sprintf(errline,"[EVB] Undefined molecule_type [%s].", buf+offset[t-1]);
     error->all(FLERR,errline);
   }
-  
+
   if(universe->me == 0) fprintf(fp,"   This interaction computed every state with this molecule present: etp_center= %s.\n",
-				evb_engine->evb_type->name[etp_center-1]);
+                                evb_engine->evb_type->name[etp_center-1]);
 
   atp_OW = atoi(buf+offset[t++]);
   B = atof(buf+offset[t++]);
@@ -83,12 +83,12 @@ int EVB_Rep_Hydronium::data_rep(char *buf, int *offset, int start, int end)
     fprintf(fp,"\n   VHO(R) = C * e^(-c * (R - dOH))\n");
     fprintf(fp,"      C= %f\n      c= %f\n      dOH= %f\n",C,c1,d_OH);
   }
-  
+
   cutoff_OO[0] = atof(buf+offset[t++]);
   cutoff_OO[1] = atof(buf+offset[t++]);
   cutoff_HO[0] = atof(buf+offset[t++]);
   cutoff_HO[1] = atof(buf+offset[t++]);
-  
+
   if(universe->me == 0) {
     fprintf(fp,"\n   Parameters for OO switching function: rs= %f  rc= %f.\n",cutoff_OO[0],cutoff_OO[1]);
     fprintf(fp,"   Parameters for HO switching function: rs= %f  rc= %f.\n",cutoff_HO[0],cutoff_HO[1]);
@@ -97,19 +97,19 @@ int EVB_Rep_Hydronium::data_rep(char *buf, int *offset, int start, int end)
   Bb1 = B*b1;
   Bb2 = B*b2;
   Cc1 = C*c1;
-  
+
   oo_cutoff_1 = pow(cutoff_OO[1]-cutoff_OO[0],-3);
   oo_cutoff_2 = 3*cutoff_OO[1]-cutoff_OO[0];
   oo_cutoff_3 = cutoff_OO[0]+cutoff_OO[1];
   oo_cutoff_4 = cutoff_OO[0]*cutoff_OO[1];
-  
+
   ho_cutoff_1 = pow(cutoff_HO[1]-cutoff_HO[0],-3);
   ho_cutoff_2 = 3*cutoff_HO[1]-cutoff_HO[0];
   ho_cutoff_3 = cutoff_HO[0]+cutoff_HO[1];
   ho_cutoff_4 = cutoff_HO[0]*cutoff_HO[1];
-  
+
   if(fabs(b2)<1e-6) bEVB3 = 0; else bEVB3 = 1;
-  
+
   return t;
 }
 
@@ -119,8 +119,8 @@ int EVB_Rep_Hydronium::data_rep(char *buf, int *offset, int start, int end)
 /* ----------------------------------------------------------------------*/
 
 void EVB_Rep_Hydronium::compute(int vflag)
-{ 
-  #if defined (_OPENMP)  
+{
+  #if defined (_OPENMP)
   compute_omp(vflag);
   return;
   #endif
@@ -128,11 +128,11 @@ void EVB_Rep_Hydronium::compute(int vflag)
   double *v = virial;                     // virial
   memset(v,0,sizeof(double)*6);
 
-  energy = e_oo = e_ho = 0.0; 
+  energy = e_oo = e_ho = 0.0;
   int **map = evb_engine->molecule_map;
 
-  int atom_o = map[center_mol_id][1];  
-  int atom_h[3];  
+  int atom_o = map[center_mol_id][1];
+  int atom_h[3];
   atom_h[0] = map[center_mol_id][2];
   atom_h[1] = map[center_mol_id][3];
   atom_h[2] = map[center_mol_id][4];
@@ -148,11 +148,11 @@ void EVB_Rep_Hydronium::compute(int vflag)
 
   for(int i=0; i<nall; i++)
   {
-   
-    if (type[i] == atp_OW || type[i]==atp_OH) 
+
+    if (type[i] == atp_OW || type[i]==atp_OH)
     {
       if(i==atom_o || atom->tag[i]==atom->tag[atom_o] || i!=atom->map(atom->tag[i])) continue;
-      
+
       int oh = atom_o, ow = i;
       double dxook,dyook,dzook,dxhok[3],dyhok[3],dzhok[3],ene;
       double dohhx[3],dohhy[3],dohhz[3];
@@ -161,24 +161,24 @@ void EVB_Rep_Hydronium::compute(int vflag)
       double r_ho2[3];
       double exp1,exp2[3],exp2_sum;
       double fo[3],fh[3],fok[3],fhj[3][3];
-	
+
       // calculate distance between r_OH and r_OW
 
       dxook = x[oh][0]-x[ow][0];
       dyook = x[oh][1]-x[ow][1];
       dzook = x[oh][2]-x[ow][2];
-      
-      domain->minimum_image(dxook,dyook,dzook);
+
+      domain->minimum_image(FLERR,dxook,dyook,dzook);
       r_oo = sqrt(dxook*dxook+dyook*dyook+dzook*dzook);
- 
-      if (r_oo < cutoff_OO[1]) 
-      {	
+
+      if (r_oo < cutoff_OO[1])
+      {
         exp1 = exp(-b1*(r_oo-d_OO));
-        
+
         if(bEVB3)
         {
           exp2_sum = 0.0;
-         
+
           for (int k = 0; k < 3; k++) {
             int h = atom_h[k];
 
@@ -187,40 +187,40 @@ void EVB_Rep_Hydronium::compute(int vflag)
             dohhx[k] = x[oh][0] - x[h][0];
             dohhy[k] = x[oh][1] - x[h][1];
             dohhz[k] = x[oh][2] - x[h][2];
-            domain->minimum_image(dohhx[k],dohhy[k],dohhz[k]);
+            domain->minimum_image(FLERR,dohhx[k],dohhy[k],dohhz[k]);
 
             dowhx[k] = x[ow][0] - x[h][0];
             dowhy[k] = x[ow][1] - x[h][1];
             dowhz[k] = x[ow][2] - x[h][2];
-            domain->minimum_image(dowhx[k],dowhy[k],dowhz[k]);
+            domain->minimum_image(FLERR,dowhx[k],dowhy[k],dowhz[k]);
 
             dxhok[k] = (dohhx[k] + dowhx[k]) / 2.0;
             dyhok[k] = (dohhy[k] + dowhy[k]) / 2.0;
             dzhok[k] = (dohhz[k] + dowhz[k]) / 2.0;
-            domain->minimum_image(dxhok[k],dyhok[k],dzhok[k]);
+            domain->minimum_image(FLERR,dxhok[k],dyhok[k],dzhok[k]);
 
             r_ho2[k] = dxhok[k]*dxhok[k]+dyhok[k]*dyhok[k]+dzhok[k]*dzhok[k];
             exp2[k] = exp(-b2 * r_ho2[k]);
             exp2_sum += exp2[k];
           }
-		  
+
           ene = B * exp1 * exp2_sum;
         }
         else { ene = B * exp1; }
-		
+
         // energy by V_OOk_rep, Eq. 7 in JPCB 112(2008)467
-        
-        if (r_oo < cutoff_OO[0])  
+
+        if (r_oo < cutoff_OO[0])
           e_oo += ene;
         else  {
           sw =  switching(oo_cutoff_1, cutoff_OO[0], cutoff_OO[1], r_oo);
           e_oo += ene * sw;
         }
-	
+
         // force by r_oo, first term of Eq. 7 in JPCB 112(2008)467
 
         tt = b1 * ene / r_oo;
-        if (r_oo >= cutoff_OO[0]) 
+        if (r_oo >= cutoff_OO[0])
           tt = tt*sw + ene * dswitching(oo_cutoff_1, cutoff_OO[0], cutoff_OO[1], r_oo) / r_oo;
         dfx = tt * dxook;
         f[oh][0] += dfx;
@@ -280,8 +280,8 @@ void EVB_Rep_Hydronium::compute(int vflag)
         dowhy[k] = x[ow][1] - x[h][1];
         dowhz[k] = x[ow][2] - x[h][2];
 
-        domain->minimum_image(dowhx[k],dowhy[k],dowhz[k]);
-        r_ho = sqrt(dowhx[k]*dowhx[k] + dowhy[k]*dowhy[k] + dowhz[k]*dowhz[k]);	
+        domain->minimum_image(FLERR,dowhx[k],dowhy[k],dowhz[k]);
+        r_ho = sqrt(dowhx[k]*dowhx[k] + dowhy[k]*dowhy[k] + dowhz[k]*dowhz[k]);
 
         if (r_ho < cutoff_HO[1]) {
           ene = C * exp(-c1*(r_ho-d_OH));
@@ -325,24 +325,24 @@ void EVB_Rep_Hydronium::compute(int vflag)
 
 void EVB_Rep_Hydronium::scan_potential_surface()
 {
-  int **map = evb_engine->molecule_map;  
-  int atom_o = map[center_mol_id][1]; 
+  int **map = evb_engine->molecule_map;
+  int atom_o = map[center_mol_id][1];
   int *type = atom->type;
   double **x = atom->x;
   double **f = atom->f;
-  
+
   fprintf(screen,"******************************************************\n");
   fprintf(screen,"****** Scan Potential Surface of Repulsive Term ******\n");
   fprintf(screen,"******************************************************\n");
-  
+
   FILE *output1 = fopen("repul_pes.xvg","w");
   FILE *output2 = fopen("repul_f.xvg","w");
   FILE *output3 = fopen("repul_e.xvg","w");
-  
+
   double start    = 1.5;
   double interval = 0.00001;
   int nsample  = 200000;
-  
+
   double* r = new double[nsample+2];
   double* fr= new double[nsample+2];
   double* e = new double[nsample+2];
@@ -353,56 +353,56 @@ void EVB_Rep_Hydronium::scan_potential_surface()
   fi[0] = new double[nsample+2];
   fi[1] = new double[nsample+2];
   fi[2] = new double[nsample+2];
-  
+
   for(int i=0; i<nsample+2; i++) r[i] = start+interval*(i-1);
-  
+
   int target = 0;
   for(int i=0; i<atom->nlocal+atom->nlocal; i++)
-    if(type[i]==atp_OW) 
-	{
-	  target = i;
-	  break;
-	}
-  
+    if(type[i]==atp_OW)
+        {
+          target = i;
+          break;
+        }
+
   double d[3];
   for(int i=0; i<3; i++)  d[i] = x[target][i]-x[atom_o][i];
   double dr = sqrt(d[0]*d[0]+d[1]*d[1]+d[2]*d[2]);
   double c[3];
   for(int i=0; i<3; i++)  c[i] = d[i]/dr;
-  
+
   for(int i=0; i<nsample+2; i++)
   {
     for(int j=0; j<3; j++) f[target][j]=0.0;
-	for(int j=0; j<3; j++) x[target][j]=x[atom_o][j]+c[j]*r[i];
-	
-	compute(false);
-	
-	e[i]=energy; e1[i]=e_oo; e2[i]=e_ho;
-	for(int j=0; j<3; j++) fi[j][i]=f[target][j];
-	fr[i] = sqrt(fi[0][i]*fi[0][i]+fi[1][i]*fi[1][i]+fi[2][i]*fi[2][i]);
+        for(int j=0; j<3; j++) x[target][j]=x[atom_o][j]+c[j]*r[i];
+
+        compute(false);
+
+        e[i]=energy; e1[i]=e_oo; e2[i]=e_ho;
+        for(int j=0; j<3; j++) fi[j][i]=f[target][j];
+        fr[i] = sqrt(fi[0][i]*fi[0][i]+fi[1][i]*fi[1][i]+fi[2][i]*fi[2][i]);
   }
-  
+
   for(int i=1; i<=nsample; i++)
   {
     de[i] = (e[i-1]-e[i+1])/2/interval;
     if(i%100==0) fprintf(screen,"r=%-12lf   analytic=%-12lf   numeric=%-12lf   error=%-12lf\n",r[i],fr[i],de[i],fr[i]-de[i]);
   }
-  
+
   for(int i=0; i<nsample+2; i++) e[i]-=e[nsample+1];
-  
+
   for(int i=1; i<=nsample; i++)
     fprintf(output1,"%lf %lf %lf %lf\n",r[i],e[i],de[i],fr[i]);
-	
+
   for(int i=1; i<=nsample; i++)
     fprintf(output2, "%lf %lf %lf %lf\n", r[i],fi[0][i],fi[1][i],fi[2][i]);
-  
+
   for(int i=1; i<=nsample; i++)
     fprintf(output3, "%lf %lf %lf %lf\n", r[i],e1[i],e2[i],e[i]);
-	
+
   fclose(output1);
   fclose(output2);
   fclose(output3);
-  
+
   exit(0);
 }
 
@@ -429,12 +429,12 @@ double EVB_Rep_Hydronium::dswitching(double denominator, double rs, double rc, d
 
 void EVB_Rep_Hydronium::sci_compute(int vflag)
 {
-  int* cplx_atom = evb_engine->complex_atom; 
+  int* cplx_atom = evb_engine->complex_atom;
   int istate = evb_complex->current_status;
   double cs2 = evb_complex->Cs2[istate];
   int **map = evb_engine->molecule_map;
 
-  int atom_o = map[center_mol_id][1];  
+  int atom_o = map[center_mol_id][1];
   int atom_h[3];
   atom_h[0] = map[center_mol_id][2];
   atom_h[1] = map[center_mol_id][3];
@@ -445,14 +445,14 @@ void EVB_Rep_Hydronium::sci_compute(int vflag)
   int *type = atom->type;
   int *molecule = atom->molecule;
   int nall = atom->nlocal+atom->nghost;
- 
+
   int cplx_id = cplx_atom[atom_o];
   int atp_OH = type[atom_o];
 
   double sw, dfx, dfy, dfz;
 
-  for (int i = 0; i < nall; i++) 
-  {      
+  for (int i = 0; i < nall; i++)
+  {
     if((type[i] == atp_OW || type[i] == atp_OH ) && cplx_atom[i]!=cplx_id && i==atom->map(atom->tag[i]))
     {
       int oh = atom_o, ow = i;
@@ -463,61 +463,61 @@ void EVB_Rep_Hydronium::sci_compute(int vflag)
       double r_ho2[3];
       double exp1,exp2[3],exp2_sum;
       double fo[3],fh[3],fok[3],fhj[3][3];
-		
+
       // calculate distance between r_OH and r_OW
 
       dxook = x[oh][0]-x[ow][0];
       dyook = x[oh][1]-x[ow][1];
       dzook = x[oh][2]-x[ow][2];
-      domain->minimum_image(dxook,dyook,dzook);
+      domain->minimum_image(FLERR,dxook,dyook,dzook);
       r_oo = sqrt(dxook*dxook+dyook*dyook+dzook*dzook);
 
-      if (r_oo < cutoff_OO[1]) 
-      {	
+      if (r_oo < cutoff_OO[1])
+      {
         exp1 = exp(-b1*(r_oo-d_OO));
-        
+
         if(bEVB3)
         {
           exp2_sum = 0.0;
-         
+
           for (int k = 0; k < 3; k++) {
             int h = atom_h[k];
 
             dohhx[k] = x[oh][0] - x[h][0];
             dohhy[k] = x[oh][1] - x[h][1];
             dohhz[k] = x[oh][2] - x[h][2];
-            domain->minimum_image(dohhx[k],dohhy[k],dohhz[k]);
+            domain->minimum_image(FLERR,dohhx[k],dohhy[k],dohhz[k]);
 
             dowhx[k] = x[ow][0] - x[h][0];
             dowhy[k] = x[ow][1] - x[h][1];
             dowhz[k] = x[ow][2] - x[h][2];
-            domain->minimum_image(dowhx[k],dowhy[k],dowhz[k]);
+            domain->minimum_image(FLERR,dowhx[k],dowhy[k],dowhz[k]);
 
             dxhok[k] = (dohhx[k] + dowhx[k]) / 2.0;
             dyhok[k] = (dohhy[k] + dowhy[k]) / 2.0;
             dzhok[k] = (dohhz[k] + dowhz[k]) / 2.0;
-            domain->minimum_image(dxhok[k],dyhok[k],dzhok[k]);
+            domain->minimum_image(FLERR,dxhok[k],dyhok[k],dzhok[k]);
 
             r_ho2[k] = dxhok[k]*dxhok[k]+dyhok[k]*dyhok[k]+dzhok[k]*dzhok[k];
             exp2[k] = exp(-b2 * r_ho2[k]);
             exp2_sum += exp2[k];
           }
-		  
+
           ene = B * exp1 * exp2_sum;
         }
         else { ene = B * exp1; }
-		
+
         // force by r_oo, first term of Eq. 7 in JPCB 112(2008)467
 
-        if (r_oo > cutoff_OO[0])  
+        if (r_oo > cutoff_OO[0])
           sw =  switching(oo_cutoff_1, cutoff_OO[0], cutoff_OO[1], r_oo);
 
         tt = b1 * ene / r_oo;
-        if (r_oo >= cutoff_OO[0]) 
+        if (r_oo >= cutoff_OO[0])
           tt = tt*sw + ene * dswitching(oo_cutoff_1, cutoff_OO[0], cutoff_OO[1], r_oo) / r_oo;
-        
-        tt *= cs2;  
-      
+
+        tt *= cs2;
+
         dfx = tt * dxook;
         f[ow][0] -= dfx;
         dfy = tt * dyook;
@@ -531,7 +531,7 @@ void EVB_Rep_Hydronium::sci_compute(int vflag)
           int h = atom_h[k];
           tt = b2 *  B * exp1 * exp2[k];
           if (r_oo >= cutoff_OO[0]) tt *= sw;
-          
+
           // force by R_HjOk, second term of Eq. 7 in JPCB 112(2008)467
 
           tt *= cs2;
@@ -553,18 +553,18 @@ void EVB_Rep_Hydronium::sci_compute(int vflag)
         dowhy[k] = x[ow][1] - x[h][1];
         dowhz[k] = x[ow][2] - x[h][2];
 
-        domain->minimum_image(dowhx[k],dowhy[k],dowhz[k]);
+        domain->minimum_image(FLERR,dowhx[k],dowhy[k],dowhz[k]);
         r_ho = sqrt(dowhx[k]*dowhx[k] + dowhy[k]*dowhy[k] + dowhz[k]*dowhz[k]);
-		
+
         if(r_ho <cutoff_HO[1])
-        {  
+        {
           ene = C * exp(-c1*(r_ho-d_OH));
           if(r_ho > cutoff_HO[0]) sw =  switching(ho_cutoff_1, cutoff_HO[0], cutoff_HO[1], r_ho);
-           
+
           tt = c1 * ene / r_ho;
           if (r_ho >= cutoff_HO[0])
             tt = tt * sw + ene * dswitching(ho_cutoff_1, cutoff_HO[0], cutoff_HO[1], r_ho) / r_ho;
-          
+
           tt *= cs2;
 
           dfx = tt * dowhx[k];
@@ -582,10 +582,10 @@ void EVB_Rep_Hydronium::sci_compute(int vflag)
 int EVB_Rep_Hydronium::checkout(int* _index)
 {
   int index_max = 10;
-  int* cplx_atom = evb_engine->complex_atom; 
+  int* cplx_atom = evb_engine->complex_atom;
   int **map = evb_engine->molecule_map;
 
-  int atom_o = map[center_mol_id][1];  
+  int atom_o = map[center_mol_id][1];
   int atom_h[3];
   atom_h[0] = map[center_mol_id][2];
   atom_h[1] = map[center_mol_id][3];
@@ -594,7 +594,7 @@ int EVB_Rep_Hydronium::checkout(int* _index)
   double **x = atom->x;
   int *type = atom->type;
   int nall = atom->nlocal+atom->nghost;
- 
+
   int atp_OH = type[atom_o];
 
    int count = 0;
@@ -603,44 +603,44 @@ int EVB_Rep_Hydronium::checkout(int* _index)
    _index[count++] = atom_h[0];
    _index[count++] = atom_h[1];
    _index[count++] = atom_h[2];
-        
+
   for(int i=0; i<nall; i++)
-  {   
-    if (type[i] == atp_OW || type[i]==atp_OH) 
+  {
+    if (type[i] == atp_OW || type[i]==atp_OH)
     {
       if(i==atom_o || atom->tag[i]==atom->tag[atom_o] || i!=atom->map(atom->tag[i])) continue;
       int oh = atom_o, ow = i;
       double dxook,dyook,dzook;
       double dowhx,dowhy,dowhz;
       double r_oo, r_ho;
-		
+
       // calculate distance between r_OH and r_OW
 
       dxook = x[oh][0]-x[ow][0];
       dyook = x[oh][1]-x[ow][1];
       dzook = x[oh][2]-x[ow][2];
-      domain->minimum_image(dxook,dyook,dzook);
+      domain->minimum_image(FLERR,dxook,dyook,dzook);
       r_oo = sqrt(dxook*dxook+dyook*dyook+dzook*dzook);
 
       if (r_oo < cutoff_OO[1]) _index[count++] = ow;
       else { // If need be, calculate distance between each r_HH and r_OW
-	int test = 0;
-	for(int k=0; k<3; k++) {
-	  int h = atom_h[k];
-	  dowhx = x[h][0] - x[ow][0]; 
-	  dowhy = x[h][1] - x[ow][1];
-	  dowhz = x[h][2] - x[ow][2];
-	  domain->minimum_image(dowhx,dowhy,dowhz);
-	  r_ho = sqrt(dowhx*dowhx + dowhy*dowhy + dowhz*dowhz);
-	  if(r_ho < cutoff_HO[1]) test = 1;
-	}
-	if(test) _index[count++] = ow;
+        int test = 0;
+        for(int k=0; k<3; k++) {
+          int h = atom_h[k];
+          dowhx = x[h][0] - x[ow][0];
+          dowhy = x[h][1] - x[ow][1];
+          dowhz = x[h][2] - x[ow][2];
+          domain->minimum_image(FLERR,dowhx,dowhy,dowhz);
+          r_ho = sqrt(dowhx*dowhx + dowhy*dowhy + dowhz*dowhz);
+          if(r_ho < cutoff_HO[1]) test = 1;
+        }
+        if(test) _index[count++] = ow;
       }
     }
   }
-  
+
   if(count>index_max) fprintf(stdout,"Warning: EVB_rep_hydronium::checkout  count>10.\n");
-  
+
   for(int i=count; i<index_max; i++) _index[i] = -1;
   return index_max;
 }
@@ -649,18 +649,18 @@ int EVB_Rep_Hydronium::checkout(int* _index)
 /* ----------------------------------------------------------------------*/
 /*   repulsive term for diagonal state, see JPCB 112(2008)467, Eq. 7-9   */
 /*     note: the definition of q_HjOk is described in JPCB 112(2008)7146 */
-/*     OpenMP threaded version                                           */ 
+/*     OpenMP threaded version                                           */
 /* ----------------------------------------------------------------------*/
 
 void EVB_Rep_Hydronium::compute_omp(int vflag)
-{ 
+{
   // ** AWGL : OpenMP threaded version ** //
 
-  energy = e_oo = e_ho = 0.0; 
+  energy = e_oo = e_ho = 0.0;
   int **map = evb_engine->molecule_map;
-  
-  int atom_o = map[center_mol_id][1];  
-  int atom_h[3];  
+
+  int atom_o = map[center_mol_id][1];
+  int atom_h[3];
   atom_h[0] = map[center_mol_id][2];
   atom_h[1] = map[center_mol_id][3];
   atom_h[2] = map[center_mol_id][4];
@@ -680,8 +680,8 @@ void EVB_Rep_Hydronium::compute_omp(int vflag)
   double e_ho_tmp = 0.0;
 
 #if defined(_OPENMP)
-#pragma omp parallel default(none) shared(vt,x,ff,type,molecule,nall,atp_OH,atom_o,atom_h)\
- reduction(+:e_oo_tmp,e_ho_tmp) 
+#pragma omp parallel default(none) shared(vt,x,ff,type,molecule,nall,atp_OH,atom_o,atom_h,nthreads)\
+ reduction(+:e_oo_tmp,e_ho_tmp)
 #endif
  {
 #if defined(_OPENMP)
@@ -708,11 +708,11 @@ void EVB_Rep_Hydronium::compute_omp(int vflag)
 
   for(int i=ifrom; i<ito; i++)
   {
-   
-    if (type[i] == atp_OW || type[i]==atp_OH) 
+
+    if (type[i] == atp_OW || type[i]==atp_OH)
     {
       if(i==atom_o || atom->tag[i]==atom->tag[atom_o] || i!=atom->map(atom->tag[i])) continue;
-      
+
       int oh = atom_o, ow = i;
       double dxook,dyook,dzook,dxhok[3],dyhok[3],dzhok[3],ene;
       double dohhx[3],dohhy[3],dohhz[3];
@@ -721,66 +721,66 @@ void EVB_Rep_Hydronium::compute_omp(int vflag)
       double r_ho2[3];
       double exp1,exp2[3],exp2_sum;
       double fo[3],fh[3],fok[3],fhj[3][3];
-	
+
       // calculate distance between r_OH and r_OW
 
       dxook = x[oh][0]-x[ow][0];
       dyook = x[oh][1]-x[ow][1];
       dzook = x[oh][2]-x[ow][2];
-      
-      domain->minimum_image(dxook,dyook,dzook);
+
+      domain->minimum_image(FLERR,dxook,dyook,dzook);
       r_oo = dxook*dxook + dyook*dyook + dzook*dzook;
- 
-      if (r_oo < cut1) 
-      {	
+
+      if (r_oo < cut1)
+      {
         r_oo = sqrt(r_oo);
         exp1 = exp(-b1*(r_oo-d_OO));
-        
+
         if(bEVB3)
         {
           exp2_sum = 0.0;
-         
+
           for (int k = 0; k < 3; k++) {
             int h = atom_h[k];
 
             dohhx[k] = x[oh][0] - x[h][0];
             dohhy[k] = x[oh][1] - x[h][1];
             dohhz[k] = x[oh][2] - x[h][2];
-            domain->minimum_image(dohhx[k],dohhy[k],dohhz[k]);
+            domain->minimum_image(FLERR,dohhx[k],dohhy[k],dohhz[k]);
 
             dowhx[k] = x[ow][0] - x[h][0];
             dowhy[k] = x[ow][1] - x[h][1];
             dowhz[k] = x[ow][2] - x[h][2];
-            domain->minimum_image(dowhx[k],dowhy[k],dowhz[k]);
+            domain->minimum_image(FLERR,dowhx[k],dowhy[k],dowhz[k]);
 
             dxhok[k] = (dohhx[k] + dowhx[k]) * 0.5;
             dyhok[k] = (dohhy[k] + dowhy[k]) * 0.5;
-            dzhok[k] = (dohhz[k] + dowhz[k]) * 0.5; 
-            domain->minimum_image(dxhok[k],dyhok[k],dzhok[k]);
+            dzhok[k] = (dohhz[k] + dowhz[k]) * 0.5;
+            domain->minimum_image(FLERR,dxhok[k],dyhok[k],dzhok[k]);
 
             r_ho2[k] = dxhok[k]*dxhok[k]+dyhok[k]*dyhok[k]+dzhok[k]*dzhok[k];
             exp2[k] = exp(-b2 * r_ho2[k]);
             exp2_sum += exp2[k];
           }
-		  
+
           ene = B * exp1 * exp2_sum;
         }
         else { ene = B * exp1; }
-		
+
         // energy by V_OOk_rep, Eq. 7 in JPCB 112(2008)467
 
-        
-        if (r_oo < cutoff_OO[0])  
+
+        if (r_oo < cutoff_OO[0])
           e_oo_tmp += ene;
         else  {
           sw =  switching(oo_cutoff_1, cutoff_OO[0], cutoff_OO[1], r_oo);
           e_oo_tmp += ene * sw;
         }
-	
+
         // force by r_oo, first term of Eq. 7 in JPCB 112(2008)467
 
         tt = b1 * ene / r_oo;
-        if (r_oo >= cutoff_OO[0]) 
+        if (r_oo >= cutoff_OO[0])
           tt = tt*sw + ene * dswitching(oo_cutoff_1, cutoff_OO[0], cutoff_OO[1], r_oo) / r_oo;
         dfx = tt * dxook;
         f[oh][0] += dfx;
@@ -840,7 +840,7 @@ void EVB_Rep_Hydronium::compute_omp(int vflag)
         dowhy[k] = x[ow][1] - x[h][1];
         dowhz[k] = x[ow][2] - x[h][2];
 
-        domain->minimum_image(dowhx[k],dowhy[k],dowhz[k]);
+        domain->minimum_image(FLERR,dowhx[k],dowhy[k],dowhz[k]);
         r_ho = dowhx[k]*dowhx[k] + dowhy[k]*dowhy[k] + dowhz[k]*dowhz[k];
 
         if (r_ho < cut2) {
@@ -885,7 +885,7 @@ void EVB_Rep_Hydronium::compute_omp(int vflag)
   for(int t = 0; t<nthreads; ++t)
     for(int i=0; i<6; ++i) virial[i] += vt[t*6 + i];
 
-  // Also need to reduce force, but will Force_Reduce take care of that for us 
+  // Also need to reduce force, but will Force_Reduce take care of that for us
 
   e_oo = e_oo_tmp;
   e_ho = e_ho_tmp;

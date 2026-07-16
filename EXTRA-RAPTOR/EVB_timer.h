@@ -23,21 +23,21 @@ namespace LAMMPS_NS {
 class EVB_Timer : protected Pointers, protected EVB_Pointers
 {
   public:
-  
+
     EVB_Timer(class LAMMPS *, class EVB_Engine *);
     virtual ~EVB_Timer() {};
-    
+
     int ntimer;
-    
+
     double stamp [TIMER_COUNT];
     double total [TIMER_COUNT];
     long   count [TIMER_COUNT];
     char*  classname [TIMER_COUNT];
     char*  functname [TIMER_COUNT];
-    
+
     void _stamp(int, const char*, const char*);
     void _click(int);
-    
+
     double start;
     double last_output;
     void output();

@@ -1,7 +1,7 @@
 /*
- * Functions for state decomposition 
- * 
- * AWGL 
+ * Functions for state decomposition
+ *
+ * AWGL
  */
 
 #ifdef STATE_DECOMP
@@ -95,7 +95,7 @@ void EVB_Engine::Divvy_Out_Partitions(int* output)
       else {
         jfrom = 1;
         jto = 1;
-      } 
+      }
     }
     else if (flag_mp_state == 1 || flag_mp_state == 3) {
       int div = jnum / universe->nworlds;
@@ -127,9 +127,9 @@ void EVB_Engine::Divvy_Out_Partitions(int* output)
   } else if (flag_mp_state && mp_verlet) {
     error->all(FLERR,"Cannot run multi state partitioning with the multiprogram Verlet integrator yet.");
   }
-  output[0] = jfrom; 
-  output[1] = jto; 
-  output[2] = my_world; 
+  output[0] = jfrom;
+  output[1] = jto;
+  output[2] = my_world;
 }
 
 /* -------------------------------------------------------------------------------- */
@@ -157,7 +157,7 @@ void EVB_Engine::Communicate_Between_Partitions(int nstate, int nextra_coupling,
          double * rbuffer = new double[num];
 
          offset = 0;
-         for(int i=0; i<nstate; i++){ 
+         for(int i=0; i<nstate; i++){
            sbuffer[offset++] = mtx->e_diagonal[i][EDIAG_POT];
            sbuffer[offset++] = mtx->e_diagonal[i][EDIAG_VDW];
            sbuffer[offset++] = mtx->e_diagonal[i][EDIAG_COUL];
@@ -184,7 +184,7 @@ void EVB_Engine::Communicate_Between_Partitions(int nstate, int nextra_coupling,
          sbuffer[offset++] = mtx->e_env[EDIAG_ANGLE];
          sbuffer[offset++] = mtx->e_env[EDIAG_DIHEDRAL];
          sbuffer[offset++] = mtx->e_env[EDIAG_IMPROPER];
-         // All partitions computed this, so only use one of them 
+         // All partitions computed this, so only use one of them
          if (universe->iworld == 0) {
            sbuffer[offset++] = mtx->e_env[EDIAG_KSPACE];
          } else {
@@ -195,7 +195,7 @@ void EVB_Engine::Communicate_Between_Partitions(int nstate, int nextra_coupling,
 
          // Unpack into the appropriate places
          offset = 0;
-         for(int i=0; i<nstate; i++){ 
+         for(int i=0; i<nstate; i++){
              mtx->e_diagonal[i][EDIAG_POT]      = rbuffer[offset++];
              mtx->e_diagonal[i][EDIAG_VDW]      = rbuffer[offset++];
              mtx->e_diagonal[i][EDIAG_COUL]     = rbuffer[offset++];
@@ -226,7 +226,7 @@ void EVB_Engine::Communicate_Between_Partitions(int nstate, int nextra_coupling,
 
          delete [] sbuffer;
          delete [] rbuffer;
-         
+
          // **** Communicate forces here if mp_state 1 or 2, otherwise force is communicated later **** //
          if (flag_mp_state == 1 || flag_mp_state == 2) {
 
@@ -244,29 +244,29 @@ void EVB_Engine::Communicate_Between_Partitions(int nstate, int nextra_coupling,
            int i;
 #if defined(_OPENMP)
            #pragma omp parallel for default(none)\
-            shared(force_sbuff,nstate,nextra_coupling,mtx) private(i) 
+            shared(force_sbuff,nstate,nextra_coupling,mtx) private(i)
 #endif
            for(i=0; i<natom; ++i) {
-	     for (int istate=0; istate<nstate; ++istate) {
-	       // ** f_diagonal force ** //
-	       force_sbuff[3*natom*istate + 3*i]   = mtx->f_diagonal[istate][i][0];
-	       force_sbuff[3*natom*istate + 3*i+1] = mtx->f_diagonal[istate][i][1];
-	       force_sbuff[3*natom*istate + 3*i+2] = mtx->f_diagonal[istate][i][2];
-	       // ** f_off_diagonal force ** //
-	       if(istate<nstate-1) {
-		 force_sbuff[3*natom*nstate + 3*natom*istate + 3*i]   = mtx->f_off_diagonal[istate][i][0];
-		 force_sbuff[3*natom*nstate + 3*natom*istate + 3*i+1] = mtx->f_off_diagonal[istate][i][1];
-		 force_sbuff[3*natom*nstate + 3*natom*istate + 3*i+2] = mtx->f_off_diagonal[istate][i][2];
-	       }
-	     }
-	     // ** f_extra_coupling force ** //
-	     for (int icouple=0; icouple<nextra_coupling; ++icouple) {
-	       force_sbuff[6*natom*nstate + 3*natom*icouple + 3*i]   = mtx->f_extra_coupling[icouple][i][0];
-	       force_sbuff[6*natom*nstate + 3*natom*icouple + 3*i+1] = mtx->f_extra_coupling[icouple][i][1];
-	       force_sbuff[6*natom*nstate + 3*natom*icouple + 3*i+2] = mtx->f_extra_coupling[icouple][i][2];
-	     }
+             for (int istate=0; istate<nstate; ++istate) {
+               // ** f_diagonal force ** //
+               force_sbuff[3*natom*istate + 3*i]   = mtx->f_diagonal[istate][i][0];
+               force_sbuff[3*natom*istate + 3*i+1] = mtx->f_diagonal[istate][i][1];
+               force_sbuff[3*natom*istate + 3*i+2] = mtx->f_diagonal[istate][i][2];
+               // ** f_off_diagonal force ** //
+               if(istate<nstate-1) {
+                 force_sbuff[3*natom*nstate + 3*natom*istate + 3*i]   = mtx->f_off_diagonal[istate][i][0];
+                 force_sbuff[3*natom*nstate + 3*natom*istate + 3*i+1] = mtx->f_off_diagonal[istate][i][1];
+                 force_sbuff[3*natom*nstate + 3*natom*istate + 3*i+2] = mtx->f_off_diagonal[istate][i][2];
+               }
+             }
+             // ** f_extra_coupling force ** //
+             for (int icouple=0; icouple<nextra_coupling; ++icouple) {
+               force_sbuff[6*natom*nstate + 3*natom*icouple + 3*i]   = mtx->f_extra_coupling[icouple][i][0];
+               force_sbuff[6*natom*nstate + 3*natom*icouple + 3*i+1] = mtx->f_extra_coupling[icouple][i][1];
+               force_sbuff[6*natom*nstate + 3*natom*icouple + 3*i+2] = mtx->f_extra_coupling[icouple][i][2];
+             }
            }
-	   
+
            // ** Reduce everybody in the group ** //
            MPI_Allreduce(force_sbuff, force_rbuff, force_message_size, MPI_DOUBLE, MPI_SUM, force_comm);
 
@@ -281,11 +281,11 @@ void EVB_Engine::Communicate_Between_Partitions(int nstate, int nextra_coupling,
                mtx->f_diagonal[istate][j][0] = force_rbuff[3*natom*istate + 3*j];
                mtx->f_diagonal[istate][j][1] = force_rbuff[3*natom*istate + 3*j+1];
                mtx->f_diagonal[istate][j][2] = force_rbuff[3*natom*istate + 3*j+2];
-	       if(istate<nstate-1) {
-		 mtx->f_off_diagonal[istate][j][0] = force_rbuff[3*natom*nstate + 3*natom*istate + 3*j];
-		 mtx->f_off_diagonal[istate][j][1] = force_rbuff[3*natom*nstate + 3*natom*istate + 3*j+1];
-		 mtx->f_off_diagonal[istate][j][2] = force_rbuff[3*natom*nstate + 3*natom*istate + 3*j+2];
-	       }
+               if(istate<nstate-1) {
+                 mtx->f_off_diagonal[istate][j][0] = force_rbuff[3*natom*nstate + 3*natom*istate + 3*j];
+                 mtx->f_off_diagonal[istate][j][1] = force_rbuff[3*natom*nstate + 3*natom*istate + 3*j+1];
+                 mtx->f_off_diagonal[istate][j][2] = force_rbuff[3*natom*nstate + 3*natom*istate + 3*j+2];
+               }
              }
              for (int icouple=0; icouple<nextra_coupling; ++icouple) {
                mtx->f_extra_coupling[icouple][j][0] = force_rbuff[6*natom*nstate + 3*natom*icouple + 3*j];
@@ -293,11 +293,11 @@ void EVB_Engine::Communicate_Between_Partitions(int nstate, int nextra_coupling,
                mtx->f_extra_coupling[icouple][j][2] = force_rbuff[6*natom*nstate + 3*natom*icouple + 3*j+2];
              }
            }
-         
+
 
            delete [] force_sbuff;
            delete [] force_rbuff;
-    
+
          } // close if 1 or 2
          else {
            // *** Zero out the environment force on all except the root of the force comm *** //
@@ -315,7 +315,7 @@ void EVB_Engine::Communicate_Between_Partitions(int nstate, int nextra_coupling,
          double **v = atom->v;
          MPI_Bcast(&v[0][0], 3*natom, MPI_DOUBLE, group_root, force_comm);
 
-         timer->stamp(TIME_COMM);
+         //timer->stamp(TIME_COMM);
        }
 
 }
@@ -329,7 +329,7 @@ void EVB_Engine::Communicate_Force_Between_Partitions(double **ff)
    // When running multiple state partitioning, this function handles the communication
    // of forces only! We assume only the ground state forces are needed. So, other state forces
    // are discarded! The idea here is that compute_hellman_feynman has already summed the forces
-   // my state partition knows about. So, all we have to do now is sum up the ground state over partitions. 
+   // my state partition knows about. So, all we have to do now is sum up the ground state over partitions.
 
    // If not doing multiple state partitioning, this function does nothing.
 
@@ -350,7 +350,7 @@ void EVB_Engine::Communicate_Force_Between_Partitions(double **ff)
 
      delete [] force_rbuff;
 
-     timer->stamp(TIME_COMM);
+     //timer->stamp(TIME_COMM);
    }
 
 }

@@ -1,0 +1,24 @@
+This is the input deck from the tarball provided by Zhi Yue (dated 12/19/2022).
+The input script in.txt (adapted from md_cont.inp) reads in the restart file md.restart,
+includes the necessary parameter files in the present folder.
+
+Command-line example:
+
+```
+mpirun -np 8 ../../../build-raptor/lmp -in in.txt
+```
+
+If LAMMPS is built with the GPU package, use the following command to run with GPU acceleration
+
+```
+mpirun -np 8 ../../../build-raptor/lmp -in in.txt -sf gpu -pk gpu 2 neigh no pair/only yes tpa 16
+```
+
+which means to use 2 GPUs on a compute node, build the neighbor list on the CPU,
+and compute the pair forces on the GPU (leaving KSpace on the CPU). For multiple MPI procs
+sharing a GPU like this, it is recommended to enable CUDA MPS before the run.
+
+
+
+
+ 

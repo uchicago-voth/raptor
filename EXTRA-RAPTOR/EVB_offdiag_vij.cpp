@@ -52,13 +52,13 @@ EVB_OffDiag_VIJ::~EVB_OffDiag_VIJ()
 int EVB_OffDiag_VIJ::data_offdiag(char *buf, int* offset, int start, int end)
 {
   int t = start;
-    
+
   FILE * fp = evb_engine->fp_cfg_out;
 
   // Input Vij information
   Vij_const = atof(buf+offset[t++]);
   evb_engine->flag_DIAG_QEFF = 1;
-  
+
   if(universe->me == 0) {
     fprintf(fp,"\n   Off-diagonal definition: VIJ= VIJ_CONST.\n");
     fprintf(fp,"\n   VIJ_CONST= %f\n",Vij_const);
@@ -78,14 +78,14 @@ void EVB_OffDiag_VIJ::compute(int vflag)
 void EVB_OffDiag_VIJ::sci_setup(int vflag)
 {
   Vij = Vij_const;
-  energy = Vij;  
+  energy = Vij;
 }
 
 /* ---------------------------------------------------------------------- */
 
 void EVB_OffDiag_VIJ::sci_compute(int vflag)
 {
-    istate = evb_complex->current_status;  
+    istate = evb_complex->current_status;
     int* parent = evb_complex->parent_id;
 
     Vij *= 2.0 * evb_complex->Cs[istate] * evb_complex->Cs[parent[istate]];

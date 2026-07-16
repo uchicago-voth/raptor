@@ -27,16 +27,16 @@ class EVB_Rep_Vii : public EVB_Repulsive
   public:
     EVB_Rep_Vii(class LAMMPS *, class EVB_Engine*);
     virtual ~EVB_Rep_Vii();
- 
+
   public:
     virtual int data_rep(char*, int*, int, int);
     virtual void compute(int);
     virtual int checkout(int*);
-   
+
   public:
     double vii;
 };
- 
+
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/

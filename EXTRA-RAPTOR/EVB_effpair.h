@@ -24,14 +24,14 @@ class EVB_EffPair : protected Pointers, protected EVB_Pointers
     EVB_EffPair(class LAMMPS *, class EVB_Engine *);
     virtual ~EVB_EffPair();
 
-    
+
     double *q;
     double **lj1,**lj2;
     int *is_exch;
     int nexch, *iexch;
     double *q_exch, *qexch;
     int max_atom;
-    
+
     double *pre_ecoul, *pre_fcoul;
     double *pre_ecoul_exch, *pre_fcoul_exch;
     double *r2inv, *r6inv;
@@ -39,7 +39,7 @@ class EVB_EffPair : protected Pointers, protected EVB_Pointers
     int max_pair;
 
     double energy, evdw, ecoul;
-    
+
     void init();
     void setup();
     void compute_para();
@@ -92,7 +92,7 @@ class EVB_EffPair : protected Pointers, protected EVB_Pointers
  private:
     double * q_offdiag;
 };
-  
+
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/

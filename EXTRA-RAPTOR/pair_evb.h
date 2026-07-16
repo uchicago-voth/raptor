@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -62,13 +62,13 @@ class PairEVB : public Pair {
   void allocate();
 //  void init_tables();
 //  void free_tables();
-  
+
  public:
   int flag;  /* 0 - normal; 1 - lj+coul; */
-  
+
   void compute_lj_erfc(int,int);
   void compute_lj_coul(int,int);
-  
+
   void compute_lj(int,int);
   void compute_lj_ecoul(int,int);
   void compute_erfc(int,int);

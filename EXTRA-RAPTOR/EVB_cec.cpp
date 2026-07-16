@@ -42,12 +42,12 @@ EVB_CEC::EVB_CEC(LAMMPS *lmp, EVB_Engine *engine, EVB_Complex *complex)
 {
   cplx = complex;
 
-  for(int i=0; i<MAX_STATE; i++) 
+  for(int i=0; i<MAX_STATE; i++)
   {
     qi_coc[i] = new double[evb_engine->atoms_per_molecule];
     id_coc[i] = new int[evb_engine->atoms_per_molecule];
   }
-} 
+}
 
 /* ---------------------------------------------------------------------- */
 
@@ -62,7 +62,7 @@ EVB_CEC::~EVB_CEC()
 void EVB_CEC::clear()
 {
   if(evb_engine->rc_rank[cplx->id-1]!=comm->me) return;
-  
+
   /********************************************/
   /*** Alloc the memory for CEC calculation ***/
   /********************************************/
@@ -75,21 +75,21 @@ void EVB_CEC::clear()
 void EVB_CEC::compute_coc()
 {
   if(evb_engine->rc_rank[cplx->id-1]!=comm->me) return;
-  
+
   /********************************************/
   /*** Assign COC information  ****************/
   /********************************************/
   int **molecule_map = evb_engine->molecule_map;
   double *q = atom->q;
   int i = cplx->current_status;
-  
+
   // Get molecule ID and number of atoms
   int mol_id = cplx->molecule_B[i];
   int mol_type = evb_engine->mol_type[molecule_map[mol_id][1]];
   int *index = evb_type->iCOC[mol_type-1];
   natom_coc[i] = evb_type->nCOC[mol_type-1];
   qsum_coc[i] = 0.0;
-	
+
   // Get atom ID and charge
   for(int j=0; j<natom_coc[i]; j++)
   {
@@ -97,17 +97,17 @@ void EVB_CEC::compute_coc()
     qi_coc[i][j] = fabs(q[id_coc[i][j]]);
     qsum_coc[i]+=qi_coc[i][j];
   }
-	
+
   // Reset the qi
   for(int j=0; j<natom_coc[i]; j++) qi_coc[i][j]/=qsum_coc[i];
-  
+
   // Calculate COC
   double **x = atom->x;
-  
+
   ref[0] = x[id_coc[i][0]][0];
   ref[1] = x[id_coc[i][0]][1];
   ref[2] = x[id_coc[i][0]][2];
-	
+
   for(int j=1; j<natom_coc[i]; j++)
   {
       double dr[3];
@@ -117,7 +117,7 @@ void EVB_CEC::compute_coc()
       VECTOR_ADD(r_coc[i],r_coc[i],dr);
   }
   VECTOR_ADD(r_coc[i],r_coc[i],ref);
-  
+
   //fprintf(screen,"%d %d %lf %lf %lf\n", cplx->id, i, r_coc[i][0],r_coc[i][1],r_coc[i][2]);
 }
 
@@ -131,21 +131,21 @@ void EVB_CEC::compute()
   /********************************************/
   /*** Calculate CEC  *************************/
   /********************************************/
-  
+
   double *C2 = cplx->Cs2;
   double dr[3];
-  
+
   ref[0] = r_coc[0][0];
   ref[1] = r_coc[0][1];
   ref[2] = r_coc[0][2];
-  
+
   for(int i=1; i<cplx->nstate; i++)
   {
     VECTOR_SUB(dr,r_coc[i],ref);
     VECTOR_PBC(dr);
-    VECTOR_SCALE_ADD(r_cec,dr,C2[i]); 
+    VECTOR_SCALE_ADD(r_cec,dr,C2[i]);
   }
-  
+
   VECTOR_ADD(r_cec,r_cec,ref);
 
   /********************************************/
@@ -158,9 +158,9 @@ void EVB_CEC::compute()
       VECTOR_PBC(dr);
       VECTOR_ADD(r_coc[i],r_cec,dr);
   }
- 
+
   }
- 
+
   //fprintf(screen,"cec %lf %lf %lf\n",r_cec[0],r_cec[1],r_cec[2]);
   broadcast();
 }
@@ -181,7 +181,7 @@ void EVB_CEC::decompose_force(double* force)
 
   double **f = atom->f;
   double* C2 = cplx->Cs2;
-  
+
   EVB_Matrix* matrix;
   if(evb_engine->ncomplex==1) matrix = (EVB_Matrix*)(evb_engine->full_matrix);
   else matrix = (EVB_Matrix*)(evb_engine->all_matrix[cplx->id-1]);
@@ -189,35 +189,35 @@ void EVB_CEC::decompose_force(double* force)
   /******************************************************************/
   /*** Calculate derivitive of [qCOC(i)] ****************************/
   /******************************************************************/
-  
+
   if(evb_engine->rc_rank[cplx->id-1] == comm->me)
-  {     
+  {
       for(int i=0; i<cplx->nstate; i++)
       {
           for(int j=0; j<natom_coc[i]; j++)
-	  {
+          {
               int aid = id_coc[i][j];
-              for(int k=0; k<3; k++) 
+              for(int k=0; k<3; k++)
               {
-		  f[aid][k]+=force[k]*C2[i]*qi_coc[i][j];
-		  //if(atom->tag[aid]==3793) printf("FORCE %lf\n", force[k]*C2[i]*qi_coc[i][j]);
+                  f[aid][k]+=force[k]*C2[i]*qi_coc[i][j];
+                  //if(atom->tag[aid]==3793) printf("FORCE %lf\n", force[k]*C2[i]*qi_coc[i][j]);
               }
-	  } // loop all the atoms in the coc
+          } // loop all the atoms in the coc
       } // loop all the coc(s)
   }
-  
+
   /******************************************************************/
   /*** Calculate derivitive of [C(i)^2]  ****************************/
   /******************************************************************/
 
-  partial_C_N3(force); 
+  partial_C_N3(force);
 }
 
 /* ---------------------------------------------------------------------- */
 
 void EVB_CEC::partial_C_N3(double *force)
 {
-#if defined (_OPENMP) 
+#if defined (_OPENMP)
   partial_C_N3_omp(force); // ** AWGL ** //
   return;
 #endif
@@ -229,22 +229,22 @@ void EVB_CEC::partial_C_N3(double *force)
   int nlocal = atom->nlocal;
   int nall = nlocal + atom->nghost;
 
-  EVB_Matrix* matrix = evb_matrix; 
+  EVB_Matrix* matrix = evb_matrix;
   int ground = matrix->ground_state;
   double **C = matrix->unitary;
   double *E = matrix->eigen_value;
-  
+
   double ***diagonal = matrix->f_diagonal;
   double ***off_diagonal = matrix->f_off_diagonal;
   double ***extra_coupl = matrix->f_extra_coupling;
-  
+
   int *parent = cplx->parent_id;
   int *nextra = cplx->extra_coupling;
   int nstate = cplx->nstate;
 
   double **f_tmp = NULL;
 #ifdef STATE_DECOMP
-  // For multistate partitioning, need a temporary force holder 
+  // For multistate partitioning, need a temporary force holder
   // to be later reduced over partitions.
   if (evb_engine->flag_mp_state > 2) {
     memory->create(f_tmp, nall, 3, "f_tmp");
@@ -252,35 +252,35 @@ void EVB_CEC::partial_C_N3(double *force)
     memset(&(f[0][0]), 0.0, sizeof(double)*nall*3);
   }
 #endif
-  
+
   double factor, factor1, factor2;
-  
+
   // Pre-calculation
   for(int i=0; i<nstate; i++)
   {
     deltaE[i] = E[ground]-E[i];
-    
+
     x_factor[i] =
       force[0]*r_coc[i][0]*C[i][ground]*2.0 +
       force[1]*r_coc[i][1]*C[i][ground]*2.0 +
       force[2]*r_coc[i][2]*C[i][ground]*2.0;
   }
-  
+
   // Loop all atoms
-  
-  for(int i=0; i<nall; i++) 
-  { 
+
+  for(int i=0; i<nall; i++)
+  {
     //double fff[3]; fff[0]=fff[1]=fff[2]=0.0;
-    
+
     memset(array1, 0, sizeof(double)*nstate*3);
     memset(array2, 0, sizeof(double)*nstate*3);
 
     /************ Eq. 21 ************************/
-    
+
     for(int m=0; m<nstate; m++)
     {
       factor = C[m][ground];
-      
+
       array1[m][0] -= factor*diagonal[m][i][0];
       array1[m][1] -= factor*diagonal[m][i][1];
       array1[m][2] -= factor*diagonal[m][i][2];
@@ -291,7 +291,7 @@ void EVB_CEC::partial_C_N3(double *force)
 
         factor1 = C[m][ground];
         factor2 = C[l][ground];
-        
+
         array1[m][0] -= factor2*off_diagonal[m-1][i][0];
         array1[l][0] -= factor1*off_diagonal[m-1][i][0];
         array1[m][1] -= factor2*off_diagonal[m-1][i][1];
@@ -300,7 +300,7 @@ void EVB_CEC::partial_C_N3(double *force)
         array1[l][2] -= factor1*off_diagonal[m-1][i][2];
       }
     }
-    
+
     for(int k=0; k<cplx->nextra_coupling; k++)
     {
       int l = cplx->extra_i[k];
@@ -308,7 +308,7 @@ void EVB_CEC::partial_C_N3(double *force)
 
       factor1 = C[m][ground];
       factor2 = C[l][ground];
-      
+
       array1[m][0] -= factor2*off_diagonal[m-1][i][0];
       array1[l][0] -= factor1*off_diagonal[m-1][i][0];
       array1[m][1] -= factor2*off_diagonal[m-1][i][1];
@@ -320,17 +320,17 @@ void EVB_CEC::partial_C_N3(double *force)
     for(int j=0; j<nstate; j++)
     {
       if(j==ground) continue;
-      
+
       for(int l=0; l<nstate; l++)
       {
         factor = C[l][j];
-        
+
         array2[j][0] += array1[l][0]*factor;
         array2[j][1] += array1[l][1]*factor;
         array2[j][2] += array1[l][2]*factor;
       }
     }
-    
+
     /************ Eq. 22 ************************/
 
     for(int j=0; j<nstate; j++)
@@ -343,15 +343,15 @@ void EVB_CEC::partial_C_N3(double *force)
     }
 
     memset(array2,0,sizeof(double)*nstate*3);
-    
+
     for(int icoc=0; icoc<nstate; icoc++)
-    {   
+    {
       for(int j=0; j<nstate; j++)
       {
         if(j==ground) continue;
 
         factor = C[icoc][j];
-        
+
         array2[icoc][0] += array1[j][0]*factor;
         array2[icoc][1] += array1[j][1]*factor;
         array2[icoc][2] += array1[j][2]*factor;
@@ -359,18 +359,18 @@ void EVB_CEC::partial_C_N3(double *force)
     }
 
     /************ Eq. 23 ************************/
-    
+
     for(int icoc=0; icoc<nstate; icoc++)
     {
       f[i][0]+=x_factor[icoc]*array2[icoc][0];
       f[i][1]+=x_factor[icoc]*array2[icoc][1];
       f[i][2]+=x_factor[icoc]*array2[icoc][2];
-      
+
       //fff[0]+=x_factor[icoc]*array2[icoc][0];
       //fff[1]+=x_factor[icoc]*array2[icoc][1];
       //fff[2]+=x_factor[icoc]*array2[icoc][2];
     }
-    
+
     //fprintf(screen,"%d %lf %lf %lf\n",atom->tag[i],fff[0],fff[1],fff[2]);
   }
 
@@ -379,7 +379,7 @@ void EVB_CEC::partial_C_N3(double *force)
     // ** For state partitioning, handle the force reduction ** //
     evb_engine->Communicate_Force_Between_Partitions(f);
     // Now add into the usual force array
-    for(int i=0; i<nall; ++i) { 
+    for(int i=0; i<nall; ++i) {
       f[i][0] += f_tmp[i][0];
       f[i][1] += f_tmp[i][1];
       f[i][2] += f_tmp[i][2];
@@ -397,7 +397,7 @@ void EVB_CEC::partial_C_N3(double *force)
     double *q = evb_effpair->q;
 
     GET_OFFDIAG_EXCH(cplx);
-    
+
     for(int i=0; i<nlocal_cplx; i++)
     {
       int id = cplx_list[i];
@@ -405,32 +405,32 @@ void EVB_CEC::partial_C_N3(double *force)
       memset(q_array2, 0, sizeof(double)*nstate);
 
       /************ Eq. 21 ************************/
-    
+
       for(int m=0; m<nstate; m++) q_array1[m] -= C[m][ground]*cplx->status[m].q[i];
 
       if(!evb_engine->flag_DIAG_QEFF) {
-	for(int m=1; m<nstate; m++)
-	  {       
-	    for(int n=0; n<nexch_off[m-1]; n++) if(iexch_off[m-1][n]==id)
+        for(int m=1; m<nstate; m++)
+          {
+            for(int n=0; n<nexch_off[m-1]; n++) if(iexch_off[m-1][n]==id)
               {
-		int l = parent[m];
-		
-		q_array1[m] -= C[l][ground]*qexch_off[m-1][n];
-		q_array1[l] -= C[m][ground]*qexch_off[m-1][n];
-		break;
-	      }
-	  }
-	
-	for(int k=0; k<cplx->nextra_coupling; k++)
-	  for(int n=0; n<nexch_extra[k]; n++) if(iexch_extra[k][n]==id)
+                int l = parent[m];
+
+                q_array1[m] -= C[l][ground]*qexch_off[m-1][n];
+                q_array1[l] -= C[m][ground]*qexch_off[m-1][n];
+                break;
+              }
+          }
+
+        for(int k=0; k<cplx->nextra_coupling; k++)
+          for(int n=0; n<nexch_extra[k]; n++) if(iexch_extra[k][n]==id)
             {
-	      int l = extra_i[k];
-	      int m = extra_j[k];
-	      
-	      q_array1[m] -= C[l][ground]*qexch_extra[k][n];
-	      q_array1[l] -= C[m][ground]*qexch_extra[k][n];
-	      break;
-	    }	
+              int l = extra_i[k];
+              int m = extra_j[k];
+
+              q_array1[m] -= C[l][ground]*qexch_extra[k][n];
+              q_array1[l] -= C[m][ground]*qexch_extra[k][n];
+              break;
+            }
       }
 
       for(int j=0; j<nstate; j++)
@@ -438,7 +438,7 @@ void EVB_CEC::partial_C_N3(double *force)
         if(j==ground) continue;
         for(int l=0; l<nstate; l++) q_array2[j] += q_array1[l]*C[j][j];
       }
-    
+
       /************ Eq. 22 ************************/
 
       for(int j=0; j<nstate; j++)
@@ -448,9 +448,9 @@ void EVB_CEC::partial_C_N3(double *force)
       }
 
       memset(q_array2,0,sizeof(double)*nstate);
-    
+
       for(int icoc=0; icoc<nstate; icoc++)
-      {   
+      {
         for(int j=0; j<nstate; j++)
         {
           if(j==ground) continue;
@@ -459,7 +459,7 @@ void EVB_CEC::partial_C_N3(double *force)
       }
 
       /************ Eq. 23 ************************/
-    
+
       for(int icoc=0; icoc<nstate; icoc++)
         q[id]+=x_factor[icoc]*q_array2[icoc];
     }
@@ -481,7 +481,7 @@ void EVB_CEC::partial_C_N2(double *force)
 
     double **f = atom->f;
     int nall = atom->nlocal + atom->nghost;
-    EVB_Matrix* matrix = evb_matrix; 
+    EVB_Matrix* matrix = evb_matrix;
     int ground = matrix->ground_state;
     double **C = matrix->unitary;
     double *E = matrix->eigen_value;
@@ -497,11 +497,11 @@ void EVB_CEC::partial_C_N2(double *force)
     for(int i=0; i<nstate; i++) deltaE[i] = E[ground]-E[i];
 
     /********** Eq. 24 ***************/
-    
+
     for(int j=0; j<nstate; j++)
     {
         if(j==ground) continue;
-        
+
         for(int i=0; i<nstate; i++)
         {
             factor = C[i][j]*C[i][ground];
@@ -512,30 +512,30 @@ void EVB_CEC::partial_C_N2(double *force)
     }
 
     /********** Eq. 25 ***************/
-    
+
     for(int l=0; l<nstate; l++)
     {
         for(int j=0; j<nstate; j++)
         {
             if(j==ground) continue;
-            
+
             factor = C[l][j]/deltaE[j];
              array2[l][0] += factor*array1[j][0];
              array2[l][1] += factor*array1[j][1];
              array2[l][2] += factor*array1[j][2];
         }
-        
+
     }
 
     /*********** Eq. 26 ******************/
-    
+
     for(int l=0; l<nstate; l++)
     {
         double prefactor[3];
         prefactor[0] = C[l][ground]*array2[l][0];
         prefactor[1] = C[l][ground]*array2[l][1];
         prefactor[2] = C[l][ground]*array2[l][2];
-        
+
         for(int i=0; i<nall; i++)
         {
              f[i][0] -= (diagonal[l][i][0])*prefactor[0];
@@ -548,12 +548,12 @@ void EVB_CEC::partial_C_N2(double *force)
     {
         int l = k;
         int m = parent[k];
-        
+
         double prefactor[3];
         prefactor[0] = C[m][ground]*array2[l][0]+C[l][ground]*array2[m][0];
         prefactor[1] = C[m][ground]*array2[l][1]+C[l][ground]*array2[m][1];
         prefactor[2] = C[m][ground]*array2[l][2]+C[l][ground]*array2[m][2];
-        
+
         for(int i=0; i<nall; i++)
         {
              f[i][0] -= off_diagonal[k-1][i][0]*prefactor[0];
@@ -561,17 +561,17 @@ void EVB_CEC::partial_C_N2(double *force)
              f[i][2] -= off_diagonal[k-1][i][2]*prefactor[2];
         }
     }
-   
+
     for(int k=0; k<cplx->nextra_coupling; k++)
     {
         int l = cplx->extra_i[k];
         int m = cplx->extra_j[k];
-        
+
         double prefactor[3];
         prefactor[0] = C[m][ground]*array2[l][0]+C[l][ground]*array2[m][0];
         prefactor[1] = C[m][ground]*array2[l][1]+C[l][ground]*array2[m][1];
         prefactor[2] = C[m][ground]*array2[l][2]+C[l][ground]*array2[m][2];
-        
+
         for(int i=0; i<nall; i++)
         {
              f[i][0] -= extra_coupl[k][i][0]*prefactor[0];
@@ -585,7 +585,7 @@ void EVB_CEC::partial_C_N2(double *force)
 
 void EVB_CEC::partial_C_N3_omp(double *force)
 {
- 
+
   // ** AWGL : OpenMP threaded version ** //
 
   /******************************************************************/
@@ -596,15 +596,15 @@ void EVB_CEC::partial_C_N3_omp(double *force)
   const int nlocal = atom->nlocal;
   const int nall = nlocal + atom->nghost;
 
-  const EVB_Matrix * matrix = evb_matrix; 
+  const EVB_Matrix * matrix = evb_matrix;
   const int ground = matrix->ground_state;
   const double * const * const C = matrix->unitary;
   const double * const E = matrix->eigen_value;
-  
+
   const double * const * const * const diagonal = matrix->f_diagonal;
   const double * const * const * const off_diagonal = matrix->f_off_diagonal;
   const double * const * const * const extra_coupl = matrix->f_extra_coupling;
-  
+
   const int * const parent = cplx->parent_id;
   const int * const nextra = cplx->extra_coupling;
   const int nstate = cplx->nstate;
@@ -624,7 +624,7 @@ void EVB_CEC::partial_C_N3_omp(double *force)
 
   double **f_tmp = NULL;
 #ifdef STATE_DECOMP
-  // For multistate partitioning, need a temporary force holder 
+  // For multistate partitioning, need a temporary force holder
   // to be later reduced over partitions.
   if (evb_engine->flag_mp_state > 2) {
     memory->create(f_tmp, nall, 3, "f_tmp");
@@ -636,7 +636,7 @@ void EVB_CEC::partial_C_N3_omp(double *force)
   int i;
 #if defined (_OPENMP)
  #pragma omp parallel default(none)\
- shared(parray1_omp, parray2_omp, inv_deltaE, force, f)\
+ shared(parray1_omp, parray2_omp, inv_deltaE, force, f, nstate, E, ground, C, nall, diagonal, off_diagonal, parent)\
  private(i)
  {
 #endif
@@ -649,7 +649,7 @@ void EVB_CEC::partial_C_N3_omp(double *force)
 
   double * parray1 = parray1_omp + 3*nstate*tid;
   double * parray2 = parray2_omp + 3*nstate*tid;
-  
+
   // Pre-calculation
 #if defined (_OPENMP)
   #pragma omp for
@@ -657,26 +657,26 @@ void EVB_CEC::partial_C_N3_omp(double *force)
   for(i=0; i<nstate; ++i)
   {
     deltaE[i] = E[ground]-E[i];
-    if (i != ground) inv_deltaE[i] = 1.0/deltaE[i]; 
-    else             inv_deltaE[ground] = 0.0; // need no for ifs below with this 
+    if (i != ground) inv_deltaE[i] = 1.0/deltaE[i];
+    else             inv_deltaE[ground] = 0.0; // need no for ifs below with this
     x_factor[i] = 2.0 * C[i][ground] * (
       force[0]*r_coc[i][0] +
       force[1]*r_coc[i][1] +
       force[2]*r_coc[i][2]);
   }
-  
+
   // Loop all atoms
 #if defined (_OPENMP)
   #pragma omp for
 #endif
-  for(i=0; i<nall; ++i) 
-  { 
+  for(i=0; i<nall; ++i)
+  {
     /************ Eq. 21 ************************/
     const double factorc = C[0][ground];
     parray1[0] = -factorc*diagonal[0][i][0];
     parray1[1] = -factorc*diagonal[0][i][1];
     parray1[2] = -factorc*diagonal[0][i][2];
-    
+
     for(int m=1; m<nstate; m++)
     {
       const int l = parent[m];
@@ -692,7 +692,7 @@ void EVB_CEC::partial_C_N3_omp(double *force)
       parray1[3*m+1] -= factor2*off_diagonal[m-1][i][1];
       parray1[3*m+2] -= factor2*off_diagonal[m-1][i][2];
     }
-    
+
     for(int k=0; k<cplx->nextra_coupling; k++)
     {
       const int l = cplx->extra_i[k];
@@ -719,7 +719,7 @@ void EVB_CEC::partial_C_N3_omp(double *force)
         parray2[3*j+2] += parray1[3*l+2]*factor;
       }
     }
-    
+
     /************ Eq. 22 ************************/
 
     for(int j=0; j<nstate; j++)
@@ -731,9 +731,9 @@ void EVB_CEC::partial_C_N3_omp(double *force)
 
     for(int j=0; j<nstate; j++)
       parray2[3*j] = parray2[3*j+1] = parray2[3*j+2] = 0.0;
-    
+
     for(int icoc=0; icoc<nstate; icoc++)
-    {   
+    {
       for(int j=0; j<nstate; j++)
       {
         const double factor = C[icoc][j];
@@ -744,7 +744,7 @@ void EVB_CEC::partial_C_N3_omp(double *force)
     }
 
     /************ Eq. 23 ************************/
-    
+
     for(int icoc=0; icoc<nstate; icoc++)
     {
       const double factor = x_factor[icoc];
@@ -766,9 +766,9 @@ void EVB_CEC::partial_C_N3_omp(double *force)
     // Now add into the usual force array
 #if defined (_OPENMP)
     #pragma omp parallel for\
-    default(none) shared(f, f_tmp) private(i)
+    default(none) shared(f, f_tmp, nall) private(i)
 #endif
-    for(i=0; i<nall; ++i) { 
+    for(i=0; i<nall; ++i) {
       f[i][0] += f_tmp[i][0];
       f[i][1] += f_tmp[i][1];
       f[i][2] += f_tmp[i][2];
@@ -791,7 +791,7 @@ void EVB_CEC::partial_C_N3_omp(double *force)
     double *q = evb_effpair->q;
 
     GET_OFFDIAG_EXCH(cplx);
-    
+
     for(int i=0; i<nlocal_cplx; i++)
     {
       int id = cplx_list[i];
@@ -799,32 +799,32 @@ void EVB_CEC::partial_C_N3_omp(double *force)
       memset(q_array2, 0, sizeof(double)*nstate);
 
       /************ Eq. 21 ************************/
-    
+
       for(int m=0; m<nstate; m++) q_array1[m] -= C[m][ground]*cplx->status[m].q[i];
 
       if(!evb_engine->flag_DIAG_QEFF) {
-	for(int m=1; m<nstate; m++)
-	  {       
-	    for(int n=0; n<nexch_off[m-1]; n++) if(iexch_off[m-1][n]==id)
+        for(int m=1; m<nstate; m++)
+          {
+            for(int n=0; n<nexch_off[m-1]; n++) if(iexch_off[m-1][n]==id)
               {
-		int l = parent[m];
-		
-		q_array1[m] -= C[l][ground]*qexch_off[m-1][n];
-		q_array1[l] -= C[m][ground]*qexch_off[m-1][n];
-		break;
-	      }
-	  }
-	
-	for(int k=0; k<cplx->nextra_coupling; k++)
-	  for(int n=0; n<nexch_extra[k]; n++) if(iexch_extra[k][n]==id)
+                int l = parent[m];
+
+                q_array1[m] -= C[l][ground]*qexch_off[m-1][n];
+                q_array1[l] -= C[m][ground]*qexch_off[m-1][n];
+                break;
+              }
+          }
+
+        for(int k=0; k<cplx->nextra_coupling; k++)
+          for(int n=0; n<nexch_extra[k]; n++) if(iexch_extra[k][n]==id)
             {
-	      int l = extra_i[k];
-	      int m = extra_j[k];
-	      
-	      q_array1[m] -= C[l][ground]*qexch_extra[k][n];
-	      q_array1[l] -= C[m][ground]*qexch_extra[k][n];
-	      break;
-	    }	
+              int l = extra_i[k];
+              int m = extra_j[k];
+
+              q_array1[m] -= C[l][ground]*qexch_extra[k][n];
+              q_array1[l] -= C[m][ground]*qexch_extra[k][n];
+              break;
+            }
       }
 
       for(int j=0; j<nstate; j++)
@@ -832,7 +832,7 @@ void EVB_CEC::partial_C_N3_omp(double *force)
         if(j==ground) continue;
         for(int l=0; l<nstate; l++) q_array2[j] += q_array1[l]*C[j][j];
       }
-    
+
       /************ Eq. 22 ************************/
 
       for(int j=0; j<nstate; j++)
@@ -842,9 +842,9 @@ void EVB_CEC::partial_C_N3_omp(double *force)
       }
 
       memset(q_array2,0,sizeof(double)*nstate);
-    
+
       for(int icoc=0; icoc<nstate; icoc++)
-      {   
+      {
         for(int j=0; j<nstate; j++)
         {
           if(j==ground) continue;
@@ -853,7 +853,7 @@ void EVB_CEC::partial_C_N3_omp(double *force)
       }
 
       /************ Eq. 23 ************************/
-    
+
       for(int icoc=0; icoc<nstate; icoc++)
         q[id]+=x_factor[icoc]*q_array2[icoc];
     }

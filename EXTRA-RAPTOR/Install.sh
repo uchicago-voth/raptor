@@ -19,9 +19,9 @@ echo DES=$DES
 if [ ! -f $DES/lammps.h ]
 then
   echo "ERROR: CAN NOT FIND THE LAMMPS SOURCE DIRECTORY."
-  exit 
+  exit
 fi
-  
+
 # Some subroutines
 
 update_file()
@@ -29,9 +29,9 @@ update_file()
   des=$1
   file=$2
   filename=`basename $file`
-  
+
   if [ ! -f $des/$filename ]; then cp -p $file $des; action='new-file'
-  else 
+  else
     if [ $file -nt $des/$filename ]; then cp -p $file $des; action='update'
     else action="no-action"; fi
   fi
@@ -44,7 +44,7 @@ force_update_file_if_present()
   des=$1
   file=$2
   filename=`basename $file`
-  
+
   if ! diff $filename $des/$filename >/dev/null ; then
     cp -p $file $des; action='forced-update'
   fi
@@ -52,19 +52,19 @@ force_update_file_if_present()
   if [ "$action" != "no-action" ]; then printf "  SYNC FILE %-32s [%-10s]\n" $file $action; fi
 }
 
-check_module () 
+check_module ()
 {
   list=`grep -l $1 ./$2*.h`
-  
+
   if (test -e EVB_module_$3.tmp) then
     rm -f EVB_module_$3.tmp
   fi
-  
+
   for file in $list; do
     qfile="\"$file\""
     echo "#include $qfile" >> EVB_module_$3.tmp
   done
-  
+
   if (test ! -e EVB_module_$3.tmp) then
     rm -f EVB_module_$3.h
     touch EVB_module_$3.h
@@ -101,21 +101,21 @@ if (test $1 = 1) then
   DFF=`diff EVB_timer_const.h tmp.dat`
 
   if [ "${DFF}" = "" ]; then /bin/rm tmp.dat; else mv tmp.dat EVB_timer_const.h; fi
-  
+
   # ****************************************************
 
-  echo "[$PKG_NAME] Update EVB_cracker.h if needed ..."; 
-  
+  echo "[$PKG_NAME] Update EVB_cracker.h if needed ...";
+
   VER_LAMMPS=`head -n 1 $DES/version.h`
   if [ -f EVB_cracker.h ]; then VER_CURRENT=`head -n 1 EVB_cracker.h`
   else VER_CURRENT=NULL
   fi
-  
+
   if [ "$VER_LAMMPS" != "$VER_CURRENT" ]
   then
     echo "Updating crackers ..."
     echo $VER_LAMMPS > EVB_cracker.h
-    
+
     crack_class  $DES  KSPACE                     kspace.h
     crack_class  $DES  GRIDCOMM                   gridcomm.h
     crack_class  $DES  NEIGHBOR                   neighbor.h
@@ -130,18 +130,18 @@ if (test $1 = 1) then
     crack_class  $DES  PAIR_LJ_CUT_COUL_LONG_OMP  pair_lj_cut_coul_long_omp.h
     crack_class  $DES  PAIR_LJ_CUT_COUL_LONG_GPU  pair_lj_cut_coul_long_gpu.h
   fi
-  
+
   # ****************************************************
 
-  echo "[$PKG_NAME] Update module files if needed ..."; 
-  
+  echo "[$PKG_NAME] Update module files if needed ...";
+
   check_module EVB_MODULE_OFFDIAG     EVB_offdiag_      offdiag      EVB_engine
   check_module EVB_MODULE_REP         EVB_rep_          rep          EVB_engine
-  
+
   # ****************************************************
 
-  echo "[$PKG_NAME] Install SRC files into $DES ..."; 
-  
+  echo "[$PKG_NAME] Install SRC files into $DES ...";
+
   FILE_LIST=`ls *.h *.cpp`
   for FILE in $FILE_LIST; do update_file $DES $FILE; done
 
@@ -156,17 +156,17 @@ if (test $1 = 1) then
 
 # Uninstall ($1==0) ****************************************************
 
- 
+
 elif (test $1 = 0) then
 
   echo "---> Uninstall SRC files in package $PKG_NAME ...";
-  
+
   FILE_LIST=`ls *.h *.cpp`
-  
-  for FILE in $FILE_LIST; 
-  do 
+
+  for FILE in $FILE_LIST;
+  do
     rm -f $DES/$FILE
-    
+
     dep=${FILE/.cpp/.d}
     obj=${FILE/.cpp/.o}
 
@@ -175,7 +175,7 @@ elif (test $1 = 0) then
       rm -f $DES/Obj_*/$dep
       rm -f $DES/Obj_*/$obj
     fi
-    
+
   done
 
   if [ ! -e $DES/multipro.cpp ]

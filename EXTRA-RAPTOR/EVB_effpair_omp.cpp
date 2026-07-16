@@ -55,29 +55,29 @@ void EVB_EffPair::pre_compute_omp()
   // realloc memory for cpl_pair_list labeling
   if(evb_list->npair_cpl > max_pair) {
     max_pair = evb_list->npair_cpl;
-    
+
     r2inv = (double*) memory->srealloc(r2inv,sizeof(double)*max_pair,"EVB_EffPair:r2inv");
     r6inv = (double*) memory->srealloc(r6inv,sizeof(double)*max_pair,"EVB_EffPair:r6inv");
     pre_ecoul = (double*) memory->srealloc(pre_ecoul,sizeof(double)*max_pair,"EVB_EffPair:pre_ecoul");
     pre_fcoul = (double*) memory->srealloc(pre_fcoul,sizeof(double)*max_pair,"EVB_EffPair:pre_fcoul");
-    
+
     pre_ecoul_exch = (double*) memory->srealloc(pre_ecoul_exch,sizeof(double)*max_pair,"EVB_EffPair:pre_ecoul_exch");
     pre_fcoul_exch = (double*) memory->srealloc(pre_fcoul_exch,sizeof(double)*max_pair,"EVB_EffPair:pre_fcoul_exch");
-    
+
     cut_coul = (bool*) memory->srealloc(cut_coul,sizeof(bool)*max_pair,"EVB_EffPair:cut_coul");
     cut_lj = (bool*) memory->srealloc(cut_lj,sizeof(bool)*max_pair,"EVB_EffPair:cut_lj");
   }
-   
+
   const double g_ewald = force->kspace->g_ewald;
   const double qqrd2e = force->qqrd2e;
   const double * const * const x = atom->x;
-  
+
   NeighList *list = evb_engine->get_pair_list();
   const int inum = list->inum;
   int *ilist = list->ilist;
   int *numneigh = list->numneigh;
   int **firstneigh = list->firstneigh;
-  
+
   int i,j,id;
 
   // The value is taken from the first off-diagonal type and assumed to be the same for all.
@@ -105,11 +105,11 @@ void EVB_EffPair::pre_compute_omp()
 
 #if defined (_OPENMP)
 #pragma omp parallel default(none)\
-  shared(ilist, firstneigh, numneigh, stdout) \
+  shared(inum, ilist, firstneigh, numneigh, x, g_ewald, qqrd2e, is_Vij_ex, cut_cgis, cut_cgis2, cgis_const, A, A3, rcutinv, B2, B, C, cut, stdout) \
   private(i,j,id)
 #endif
   {
-    
+
 #if defined (_OPENMP)
     const int tid = omp_get_thread_num();
     const int dn = inum / comm->nthreads + 1;
@@ -129,84 +129,84 @@ void EVB_EffPair::pre_compute_omp()
       const int jnum = numneigh[atomi];
 
       if(i < istart) {
-	id+= jnum;
-	continue;
+        id+= jnum;
+        continue;
       }
 
       const int *jlist = firstneigh[atomi];
-      
+
       const double xi = x[atomi][0];
       const double yi = x[atomi][1];
       const double zi = x[atomi][2];
 
       for(j=0; j<jnum; j++) {
-	const int atomj = jlist[j] & NEIGHMASK;
-	
-	const double dx = xi - x[atomj][0];
-	const double dy = yi - x[atomj][1];
-	const double dz = zi - x[atomj][2];
-      	const double r2 = dx*dx + dy*dy + dz*dz;
+        const int atomj = jlist[j] & NEIGHMASK;
 
-	r2inv[id] = 1.0 / r2;
-	
-	if(r2>cut_coulsq) cut_coul[id]=true;
-	else {
-	  cut_coul[id]=false;
-	  
-	  const double r = sqrt(r2);
+        const double dx = xi - x[atomj][0];
+        const double dy = yi - x[atomj][1];
+        const double dz = zi - x[atomj][2];
+        const double r2 = dx*dx + dy*dy + dz*dz;
 
-	  const double EWALD_F = 1.12837917;
-	  const double EWALD_P = 0.3275911;
-	  const double EA1 =      0.254829592;
-	  const double EA2 =     -0.284496736;
-	  const double EA3 =      1.421413741;
-	  const double EA4 =     -1.453152027;
-	  const double EA5 =      1.061405429;
+        r2inv[id] = 1.0 / r2;
 
-	  const double grij = g_ewald * r;
-	  const double expm2 = exp(-grij*grij);
-	  const double t = 1.0 / (1.0 + EWALD_P*grij);
-	  const double erfc = t * (EA1+t*(EA2+t*(EA3+t*(EA4+t*EA5)))) * expm2;
-	  const double prefactor = qqrd2e / r;
-	  pre_ecoul[id] = prefactor * erfc;
-	  pre_fcoul[id] = prefactor * (erfc+EWALD_F*grij*expm2);
-	  
-	  if(is_Vij_ex==1) {
-	    pre_ecoul_exch[id] = pre_ecoul[id];
-	    pre_fcoul_exch[id] = pre_fcoul[id];
-	    
-	  } else if(is_Vij_ex==4 || is_Vij_ex==5) {
-	    const double rinv = 1.0 / r;
-	    
-	    pre_ecoul_exch[id] = rinv;
-	    pre_fcoul_exch[id] = r2inv[id];
-	    
-	    if(r < cut_cgis) { 
-	      pre_ecoul_exch[id] += cgis_const - B2 * (r2 - cut_cgis2);
-	      pre_fcoul_exch[id] += B * r;
-	    } else { 
-	      const double dr = r - cut;
-	      const double dr2 = dr * dr;
-	      pre_ecoul_exch[id] += -rcutinv + A3 * dr2 * dr + B2 * dr2 + C * dr;
-	      pre_fcoul_exch[id] += -A * dr2 - B * dr - C;
-	    }
-	    
-	    pre_ecoul_exch[id] *= qqrd2e;
-	    pre_fcoul_exch[id] *= qqrd2e * r;
-	    
-	  } else if(is_Vij_ex == 0) {
-	    pre_ecoul_exch[id] = 0.0;
-	    pre_fcoul_exch[id] = 0.0;
-	  } else error->one(FLERR,"r-space approx. for off-diagonal not recognized.");
-	}
-	
-	if(r2>cut_ljsq) cut_lj[id]=true;
-	else {
-	  cut_lj[id]=false;
-	  r6inv[id] = r2inv[id]*r2inv[id]*r2inv[id];
-	}
-	
-	id++;
+        if(r2>cut_coulsq) cut_coul[id]=true;
+        else {
+          cut_coul[id]=false;
+
+          const double r = sqrt(r2);
+
+          const double EWALD_F = 1.12837917;
+          const double EWALD_P = 0.3275911;
+          const double EA1 =      0.254829592;
+          const double EA2 =     -0.284496736;
+          const double EA3 =      1.421413741;
+          const double EA4 =     -1.453152027;
+          const double EA5 =      1.061405429;
+
+          const double grij = g_ewald * r;
+          const double expm2 = exp(-grij*grij);
+          const double t = 1.0 / (1.0 + EWALD_P*grij);
+          const double erfc = t * (EA1+t*(EA2+t*(EA3+t*(EA4+t*EA5)))) * expm2;
+          const double prefactor = qqrd2e / r;
+          pre_ecoul[id] = prefactor * erfc;
+          pre_fcoul[id] = prefactor * (erfc+EWALD_F*grij*expm2);
+
+          if(is_Vij_ex==1) {
+            pre_ecoul_exch[id] = pre_ecoul[id];
+            pre_fcoul_exch[id] = pre_fcoul[id];
+
+          } else if(is_Vij_ex==4 || is_Vij_ex==5) {
+            const double rinv = 1.0 / r;
+
+            pre_ecoul_exch[id] = rinv;
+            pre_fcoul_exch[id] = r2inv[id];
+
+            if(r < cut_cgis) {
+              pre_ecoul_exch[id] += cgis_const - B2 * (r2 - cut_cgis2);
+              pre_fcoul_exch[id] += B * r;
+            } else {
+              const double dr = r - cut;
+              const double dr2 = dr * dr;
+              pre_ecoul_exch[id] += -rcutinv + A3 * dr2 * dr + B2 * dr2 + C * dr;
+              pre_fcoul_exch[id] += -A * dr2 - B * dr - C;
+            }
+
+            pre_ecoul_exch[id] *= qqrd2e;
+            pre_fcoul_exch[id] *= qqrd2e * r;
+
+          } else if(is_Vij_ex == 0) {
+            pre_ecoul_exch[id] = 0.0;
+            pre_fcoul_exch[id] = 0.0;
+          } else error->one(FLERR,"r-space approx. for off-diagonal not recognized.");
+        }
+
+        if(r2>cut_ljsq) cut_lj[id]=true;
+        else {
+          cut_lj[id]=false;
+          r6inv[id] = r2inv[id]*r2inv[id]*r2inv[id];
+        }
+
+        id++;
       } // for(j<jnum)
     } // for(i<inum)
   } // openmp for
@@ -219,7 +219,7 @@ void EVB_EffPair::compute_vdw_eff_omp()
 {
   const double *Cs2 = evb_complex->Cs2;
   const int *cplx_list = evb_complex->cplx_list;
-  
+
   const int natp = evb_type->natp;
   const int *atp_list = evb_type->atp_list;
 
@@ -227,7 +227,7 @@ void EVB_EffPair::compute_vdw_eff_omp()
 
 #if defined (_OPENMP)
 #pragma omp parallel default(none)\
-  shared(Cs2, cplx_list, atp_list)\
+  shared(Cs2, cplx_list, atp_list, natp)\
   private(i, j, t)
 #endif
   {
@@ -236,20 +236,20 @@ void EVB_EffPair::compute_vdw_eff_omp()
 #endif
     for(i=0; i<evb_complex->natom_cplx; i++) {
       const int id = cplx_list[i];
-      
+
       memset(lj1[id],0,sizeof(double)*natp);
       memset(lj2[id],0,sizeof(double)*natp);
-      
+
       for(j=0; j<evb_complex->nstate; j++) {
-	const int* type = evb_complex->status[j].type;
-	const int type_I = type[i];
-	const double c = Cs2[j];
-	
-	for(t=0; t<natp; t++) { 
-	  const int indx = atp_list[t];
-	  lj1[id][t] += c * ptrLJ1[type_I][indx];
-	  lj2[id][t] += c * ptrLJ2[type_I][indx];
-	}
+        const int* type = evb_complex->status[j].type;
+        const int type_I = type[i];
+        const double c = Cs2[j];
+
+        for(t=0; t<natp; t++) {
+          const int indx = atp_list[t];
+          lj1[id][t] += c * ptrLJ1[type_I][indx];
+          lj2[id][t] += c * ptrLJ2[type_I][indx];
+        }
       }
     } // for(i<natom_cplx)
   } // omp parallel

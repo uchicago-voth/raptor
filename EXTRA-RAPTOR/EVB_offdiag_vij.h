@@ -29,19 +29,19 @@ class EVB_OffDiag_VIJ : public EVB_OffDiag
 public:
   EVB_OffDiag_VIJ(class LAMMPS *, class EVB_Engine*);
   virtual ~EVB_OffDiag_VIJ();
-  
+
 public:
   virtual int data_offdiag(char*,int*,int,int);
   virtual void compute(int);
   virtual void sci_setup(int);
   virtual void sci_compute(int);
   virtual void sci_setup_mp() {};
-  
+
 public:
   int istate;
 
 };
-  
+
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/

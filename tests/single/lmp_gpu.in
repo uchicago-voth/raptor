@@ -1,0 +1,57 @@
+package         gpu 1 pair/only yes neigh no newton off split 1.0
+newton          off on
+
+units           real
+atom_style      full
+
+pair_style      lj/cut/coul/long/gpu 9.0
+pair_modify     mix arithmetic
+
+bond_style      hybrid harmonic morse
+angle_style     harmonic
+dihedral_style  none
+improper_style  none
+
+kspace_style    pppm 1e-5
+
+variable 	input 	    string	1HCl256Water
+
+read_data	${input}.data
+restart 	100000 ${input}.restart
+
+bond_coeff      1  harmonic 529.581    1.012                 # OW-HW
+bond_coeff      2  morse    79.086356  2.083387     0.98     # OH-HH
+
+angle_coeff     1  37.95    113.24   	# HW-OW-HW
+angle_coeff     2  38.7434  111.7269 	# HH-OH-HH
+
+pair_coeff      1 1  0.155425  3.165492  # OW - OW
+pair_coeff	2 2  0.0       0.0	 # HW - HW
+pair_coeff      3 3  0.09861   3.11851   # OH - OH
+pair_coeff	4 4  0.0000405 0.0       # HH - HH
+pair_coeff      5 5  0.1000    4.400     # Cl - Cl
+pair_coeff      2 3  3.0       1.6     	 # HW - OH
+
+neighbor        2.0 bin
+neigh_modify    delay 5 every 1 check yes
+
+timestep 	0.5
+
+log 		log.lammps
+reset_timestep	0
+
+thermo          10
+thermo_style 	custom step temp ke pe etotal
+thermo_modify 	flush yes
+
+dump 		trj all custom 500000 ${input}.lammstrj id type mol x y z 
+dump_modify 	trj sort id
+
+fix             nve all nve
+fix             evb all evb in.evb evb.out ${input}.top
+
+#run		500000 post yes
+run             0
+
+write_data	final.data
+#write_top	final.top

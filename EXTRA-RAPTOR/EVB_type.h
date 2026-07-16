@@ -21,7 +21,7 @@ class EVB_Type : protected Pointers, protected EVB_Pointers
   public:
     EVB_Type(class LAMMPS *, class EVB_Engine *);
     virtual ~EVB_Type();
-  
+
   public:
     int type_count;
     int atom_count;
@@ -38,7 +38,7 @@ class EVB_Type : protected Pointers, protected EVB_Pointers
     int *starting_rc;
     int ***bond_map;
     double *qsum, *qsqsum;
-    char **name;    
+    char **name;
     int *id;
 
     // per atom array
@@ -56,12 +56,12 @@ class EVB_Type : protected Pointers, protected EVB_Pointers
     int *num_improper;
     int **improper_type;
     int **improper_atom1,**improper_atom2,**improper_atom3,**improper_atom4;
-    
+
     // for sci-evb effective vdw
     int natp;   // # of atom types used by MS-EVB
     int *atp_list;  // array of types ID, index from 0 to natp-1;
-    int *atp_index; // array of types index, from 1 to atom->ntypes, 
-                    // atp_index[I], means index of type I in atp_list; 
+    int *atp_index; // array of types index, from 1 to atom->ntypes,
+                    // atp_index[I], means index of type I in atp_list;
 
   public:
     int get_type(char*);
@@ -70,7 +70,7 @@ class EVB_Type : protected Pointers, protected EVB_Pointers
     int data_type(char*,int*, int,int);
     void init_kspace();
 };
-  
+
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/

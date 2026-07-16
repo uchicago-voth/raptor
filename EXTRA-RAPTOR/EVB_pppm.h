@@ -5,13 +5,13 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
-   
+
    splitted for MS-EVB by Yuxing Peng
-   
+
 ------------------------------------------------------------------------- */
 
 #ifdef KSPACE_CLASS
@@ -38,25 +38,26 @@ namespace LAMMPS_NS {
 
 class EVB_PPPM : public EVB_KSpace {
  public:
- 
+
   /*********************************************************/
   /*********************************************************/
   /*********************************************************/
   int natm_env;
-  
+
   int nx, ny, nz, mx, my, mz, nlocal;
   FFT_SCALAR dx, dy, dz, x0, y0, z0;
   FFT_SCALAR ekx, eky, ekz;
-  
+
+  // NOTE:
   double *q;
   double **x, **f;
-  
+
   double dipole_env; // z-component of dipole of environment for slab correction
   double dipole_r2_env;
 
   double **part2grid_dr;
   FFT_SCALAR ***env_density_brick;
-  
+
   void clear_density();
   void load_env_density();
   void poisson_energy(int);
@@ -71,10 +72,14 @@ class EVB_PPPM : public EVB_KSpace {
   virtual void compute_exch(int);
   virtual void compute_eff(int);
   virtual void map2density_one(int);
+  virtual void map2density_list(const int*, int, const int*, bool);
   virtual void map2density_one(int, int);
   virtual void map2density_one_subtract(int);
+  virtual void map2density_list_subtract(const int*, int);
   virtual void field2force_one_ik(int, bool);
+  virtual void field2force_list_ik(const int*, int, const int*, bool, bool);
   virtual void field2force_one_ad(int, bool);
+  virtual void field2force_list_ad(const int*, int, const int*, bool, bool);
   LAMMPS * lmp_pointer;
 
   void sci_setup_iteration();
@@ -88,11 +93,11 @@ class EVB_PPPM : public EVB_KSpace {
   void sci_compute_eff_cplx_mp(int);
   void poisson_mp(int, int, int, int);
   void poisson_ik_mp(int, int, int);
-  
+
   /*********************************************************/
   /*********************************************************/
   /*********************************************************/
- 
+
   EVB_PPPM(class LAMMPS*);
   virtual void settings(int, char **);
   virtual ~EVB_PPPM();
@@ -105,8 +110,8 @@ class EVB_PPPM : public EVB_KSpace {
   virtual double memory_usage();
 
   // GridComm
-  FFT_SCALAR * cg_buf1;
-  FFT_SCALAR * cg_buf2;
+  FFT_SCALAR * gc_buf1;
+  FFT_SCALAR * gc_buf2;
   int ngc_buf1, ngc_buf2, npergrid;
 
  protected:
@@ -118,14 +123,15 @@ class EVB_PPPM : public EVB_KSpace {
   double cutoff;
   double volume;
   double delxinv,delyinv,delzinv,delvolinv;
-  double shift,shiftone;
+  double shift, shiftone, shiftatom_lo, shiftatom_hi;
+  int peratom_allocate_flag;
 
   int nxlo_in,nylo_in,nzlo_in,nxhi_in,nyhi_in,nzhi_in;
   int nxlo_out,nylo_out,nzlo_out,nxhi_out,nyhi_out,nzhi_out;
   int nxlo_ghost,nxhi_ghost,nylo_ghost,nyhi_ghost,nzlo_ghost,nzhi_ghost;
   int nxlo_fft,nylo_fft,nzlo_fft,nxhi_fft,nyhi_fft,nzhi_fft;
   int nlower,nupper;
-  int ngrid,nfft,nbuf,nfft_both;
+  int ngrid,nfft_brick,nfft,nfft_both;
 
   FFT_SCALAR ***density_brick;
   FFT_SCALAR ***vdx_brick,***vdy_brick,***vdz_brick;
@@ -151,7 +157,7 @@ class EVB_PPPM : public EVB_KSpace {
 
   class FFT3d *fft1,*fft2;
   class Remap *remap;
-  class GridComm *cg;
+  class Grid3d *gc;
 
   int **part2grid;             // storage for particle -> grid mapping
   int nmax;
@@ -160,7 +166,7 @@ class EVB_PPPM : public EVB_KSpace {
   void setup_triclinic();
   void compute_gf_ik_triclinic();
   void poisson_ik_triclinic();
-  
+
   double *boxlo;
                                // TIP4P settings
   int typeH,typeO;             // atom types of TIP4P water H and O atoms
@@ -210,11 +216,11 @@ class EVB_PPPM : public EVB_KSpace {
   virtual void fieldforce_env_ik();
   virtual void fieldforce_env_ad();
 
-  void procs2grid2d(int,int,int,int *, int*);
+  void procs2grid2d(int, int, int, int &, int &);
   void compute_rho1d(const FFT_SCALAR &, const FFT_SCALAR &,
-		     const FFT_SCALAR &);
+                     const FFT_SCALAR &);
   void compute_drho1d(const FFT_SCALAR &, const FFT_SCALAR &,
-		     const FFT_SCALAR &);
+                     const FFT_SCALAR &);
   void compute_rho_coeff();
 
   // Slab-correction
@@ -232,7 +238,7 @@ class EVB_PPPM : public EVB_KSpace {
   double * energy_sci_compute_cplx_self; // self-energy in sci_compute_cplx
 
   // GridComm
-  
+
   virtual void pack_forward_grid(int, void *, int, int *);
   virtual void unpack_forward_grid(int, void *, int, int *);
   virtual void pack_reverse_grid(int, void *, int, int *);

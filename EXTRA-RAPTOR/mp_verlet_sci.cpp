@@ -5,14 +5,14 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Authors: Chris Knight 
+   Authors: Chris Knight
              Derived from USER-MULTIPRO package
 ------------------------------------------------------------------------- */
 
@@ -55,7 +55,7 @@ using namespace LAMMPS_NS;
 /* ---------------------------------------------------------------------- */
 
 MP_Verlet_SCI::MP_Verlet_SCI(LAMMPS *lmp, int narg, char **arg) :
-  Integrate(lmp, narg, arg) 
+  Integrate(lmp, narg, arg)
 {
 
 }
@@ -85,20 +85,20 @@ void MP_Verlet_SCI::init()
   else if (universe->nworlds < 3 && universe->iworld == 0) is_master3 = 1;
 
   int nprocs = universe->procs_per_world[0];
-  
+
   int iblock, key;
   if(is_master) key = 0;
   else key = 1;
   iblock = comm->me;
 
   MPI_Comm_split(universe->uworld, iblock, key, &block);
-  
+
   // /* -------------------------------------------------------------
   //    Interface to fix_evb module
   // ------------------------------------------------------------- */
-  
+
   fix_evb = NULL;
-  
+
   for(int i=0; i<modify->nfix; i++)
     if(strcmp(modify->fix[i]->style, "evb")==0) {
       fix_evb = (FixEVB*)(modify->fix[i]);
@@ -108,40 +108,40 @@ void MP_Verlet_SCI::init()
   if(!fix_evb) error->universe_one(FLERR,"fix_evb not found");
 
   // /* -------------------------------------------------------------
-  //    The modified part ends here. The rest is copied from 
+  //    The modified part ends here. The rest is copied from
   //    Verlet::init() on Jan. 17, 2013.
   // ------------------------------------------------------------- */
-    
+
   // warn if no fixes
-  
+
   if (modify->nfix == 0 && comm->me == 0)
     error->warning(FLERR,"No fixes defined, atoms won't move");
-  
+
   // virial_style:
   // 1 if computed explicitly by pair->compute via sum over pair interactions
   // 2 if computed implicitly by pair->virial_compute via sum over ghost atoms
-  
+
   if (force->newton_pair) virial_style = 2;
   else virial_style = 1;
-  
+
   // setup lists of computes for global and per-atom PE and pressure
-  
+
   ev_setup();
 
   // detect if fix omp is present for clearing force arrays
 
   int ifix = modify->find_fix("package_omp");
   if (ifix >= 0) external_force_clear = 1;
-  
+
   // set flags for what arrays to clear in force_clear()
   // need to clear torques if array exists
-  
+
   torqueflag = extraflag = 0;
   if (atom->torque_flag) torqueflag = 1;
   if (atom->avec->forceclearflag) extraflag = 1;
-  
+
   // orthogonal vs triclinic simulation box
-  
+
   triclinic = domain->triclinic;
 }
 
@@ -168,10 +168,10 @@ void MP_Verlet_SCI::setup()
     fprintf(stdout,"\nget_memory() at start of MP_Verlet_SCI::setup().\n");
     fix_evb->Engine->get_memory();
   }
-#endif  
+#endif
 
   update->setupflag = 1;
-  
+
   // setup domain, communication and neighboring
   // acquire ghosts
   // build neighbor lists
@@ -192,7 +192,7 @@ void MP_Verlet_SCI::setup()
   modify->setup_pre_neighbor();
   neighbor->build();
   neighbor->ncalls = 0;
-  
+
   // compute all forces
 
   ev_set(update->ntimestep);
@@ -208,16 +208,16 @@ void MP_Verlet_SCI::setup()
     if (force->dihedral) force->dihedral->compute(eflag,vflag);
     if (force->improper) force->improper->compute(eflag,vflag);
   }
-    
+
   if(force->kspace) {
     force->kspace->setup();
     if(kspace_compute_flag) force->kspace->compute(eflag,vflag);
     else force->kspace->compute_dummy(eflag,vflag);
   }
-    
+
   if (force->newton) comm->reverse_comm();
 
-  modify->setup(vflag); 
+  modify->setup(vflag);
   if(is_master) output->setup(1);
   update->setupflag = 0;
 
@@ -226,7 +226,7 @@ void MP_Verlet_SCI::setup()
     fprintf(stdout,"\nget_memory() at end of MP_Verlet_SCI::setup().\n");
     fix_evb->Engine->get_memory();
   }
-#endif  
+#endif
 }
 
 /* ----------------------------------------------------------------------
@@ -267,8 +267,8 @@ void MP_Verlet_SCI::setup_minimal(int flag)
   ev_set(update->ntimestep);
   force_clear();
   modify->setup_pre_force(vflag);
-  
-  if(is_master) 
+
+  if(is_master)
   {
     if (pair_compute_flag) force->pair->compute(eflag,vflag);
     else if (force->pair) force->pair->compute_dummy(eflag,vflag);
@@ -280,7 +280,7 @@ void MP_Verlet_SCI::setup_minimal(int flag)
       if (force->improper) force->improper->compute(eflag,vflag);
     }
   }
-  /********************************************************************/  
+  /********************************************************************/
   else
   {
     if (force->kspace) {
@@ -289,7 +289,7 @@ void MP_Verlet_SCI::setup_minimal(int flag)
       else force->kspace->compute_dummy(eflag,vflag);
     }
   }
-  
+
   if(is_master) {
     if (force->newton) comm->reverse_comm();
     modify->setup(vflag);
@@ -322,12 +322,12 @@ void MP_Verlet_SCI::run(int n)
   else sortflag = 0;
 
   for (int i = 0; i < n; i++) {
-    
+
     ntimestep = ++update->ntimestep;
     ev_set(ntimestep);
-    
+
     // initial time integration
-    
+
     if(is_master) {
       modify->initial_integrate(vflag);
       if (n_post_integrate) modify->post_integrate();
@@ -367,43 +367,43 @@ void MP_Verlet_SCI::run(int n)
     }
 
     // force computations
-    
+
     force_clear();
 
     if (n_pre_force) modify->pre_force(vflag);
 
     /*****************************************/
-    
+
     timer->stamp();
-    
+
     /*****************************************/
-    
-    if(is_master) {    
+
+    if(is_master) {
       // reverse communication of forces
-      
+
       if (force->newton) {
-	comm->reverse_comm();
-	timer->stamp(Timer::COMM);
+        comm->reverse_comm();
+        timer->stamp(Timer::COMM);
       }
-      
+
       // force modifications, final time integration, diagnostics
-      
+
       if (n_post_force) modify->post_force(vflag);
     } else if(fix_evb) fix_evb->post_force(vflag);
-    
+
     if(is_master) {
       modify->final_integrate();
       if (n_end_of_step) modify->end_of_step();
     }
-    
+
     if (ntimestep == output->next) {
       timer->stamp();
       if(is_master) output->write(ntimestep);
       timer->stamp(Timer::OUTPUT);
     }
-    
+
   } // end of running-N-steps loop
-  
+
 }
 
 /* ---------------------------------------------------------------------- */

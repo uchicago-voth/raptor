@@ -69,9 +69,9 @@ double EVB_OffDiag::exch_chg_cut(int vflag)
   int newton_pair = force->newton_pair;
   double qqrd2e = force->qqrd2e;
   int nlocal = atom->nlocal;
-  
+
   double ene = 0.0;
-  
+
   if(strcmp(force->pair_style,"lj/cut/coul/cut")==0)
   {
     PairLJCutCoulCut* ptr = (PairLJCutCoulCut*)(force->pair);
@@ -90,8 +90,8 @@ double EVB_OffDiag::exch_chg_cut(int vflag)
     cut = (*p_cutoff);
     cut_sq = cut*cut;
   }
- 
-  double *q = atom->q; 
+
+  double *q = atom->q;
   double **f = atom->f;
   double **x = atom->x;
 
@@ -100,70 +100,70 @@ double EVB_OffDiag::exch_chg_cut(int vflag)
   int *ilist = list->ilist;
   int *numneigh = list->numneigh;
   int **firstneigh = list->firstneigh;
-    
+
   // If full neighbor list, scale energies/forces by 0.5.
   double full_neigh_scale = 1.0;
   if(evb_engine->evb_full_neigh) full_neigh_scale = 0.5;
 
   for(int i=0; i<inum; i++) {
     bool iflag = false;
-    
+
     int atomi = ilist[i];
     if(is_exch_chg[atomi]) iflag = true;
-    
+
     int jnum = numneigh[atomi];
     int *jlist = firstneigh[atomi];
-    
+
     for(int j=0; j<jnum; j++) {
       int atomj = jlist[j];
       atomj &=NEIGHMASK;
-      
+
       bool jflag = false;
       if (is_exch_chg[atomj]) jflag = true;
-      
-      if( (iflag && (!jflag)) || (jflag && (!iflag)) ) {   
-	/*************************************************************/
-	/*************************************************************/
-	double qiqj = q[atomi] * q[atomj];
-	if (fabs(qiqj) > SMALL) {
-	  double dr[3],r2;
-	  VECTOR_SUB(dr,x[atomi],x[atomj]);
-	  VECTOR_R2(r2,dr);
-	  
-	  if (r2 < cut_sq) {
-	    double r2inv = 1.0 / r2;
-	    double ecoul = qqrd2e * qiqj * sqrt(r2inv);
-	    double fpair = ecoul  * r2inv * A_Rq * full_neigh_scale;
-	    
-	    double ftmpx = fpair * dr[0];
-	    double ftmpy = fpair * dr[1];
-	    double ftmpz = fpair * dr[2];
-	    
-	    if(atomi < nlocal) ene+= ecoul;
-	    f[atomi][0] += ftmpx;
-	    f[atomi][1] += ftmpy;
-	    f[atomi][2] += ftmpz;
-            
-	    if (newton_pair || atomj < nlocal) {
-	      f[atomj][0] -= ftmpx;
-	      f[atomj][1] -= ftmpy;
-	      f[atomj][2] -= ftmpz;
-	    }
-            
-	    if (vflag) {
-	      virial[0] += ftmpx * dr[0];
-	      virial[1] += ftmpy * dr[1];
-	      virial[2] += ftmpz * dr[2];
-	      virial[3] += ftmpx * dr[1];
-	      virial[4] += ftmpx * dr[2];
-	      virial[5] += ftmpy * dr[2];
-	    }
-            
-	  }
-	}  
-	/*************************************************************/
-	/*************************************************************/	  
-        
+
+      if( (iflag && (!jflag)) || (jflag && (!iflag)) ) {
+        /*************************************************************/
+        /*************************************************************/
+        double qiqj = q[atomi] * q[atomj];
+        if (fabs(qiqj) > SMALL) {
+          double dr[3],r2;
+          VECTOR_SUB(dr,x[atomi],x[atomj]);
+          VECTOR_R2(r2,dr);
+
+          if (r2 < cut_sq) {
+            double r2inv = 1.0 / r2;
+            double ecoul = qqrd2e * qiqj * sqrt(r2inv);
+            double fpair = ecoul  * r2inv * A_Rq * full_neigh_scale;
+
+            double ftmpx = fpair * dr[0];
+            double ftmpy = fpair * dr[1];
+            double ftmpz = fpair * dr[2];
+
+            if(atomi < nlocal) ene+= ecoul;
+            f[atomi][0] += ftmpx;
+            f[atomi][1] += ftmpy;
+            f[atomi][2] += ftmpz;
+
+            if (newton_pair || atomj < nlocal) {
+              f[atomj][0] -= ftmpx;
+              f[atomj][1] -= ftmpy;
+              f[atomj][2] -= ftmpz;
+            }
+
+            if (vflag) {
+              virial[0] += ftmpx * dr[0];
+              virial[1] += ftmpy * dr[1];
+              virial[2] += ftmpz * dr[2];
+              virial[3] += ftmpx * dr[1];
+              virial[4] += ftmpx * dr[2];
+              virial[5] += ftmpy * dr[2];
+            }
+
+          }
+        }
+        /*************************************************************/
+        /*************************************************************/
+
       } // End of calculation
     } // End of loop atom j
   } // End of loop atom i
@@ -179,7 +179,7 @@ double EVB_OffDiag::exch_chg_debye(int vflag)
   int newton_pair = force->newton_pair;
   double qqrd2e = force->qqrd2e;
   int nlocal = atom->nlocal;
-  
+
   double ene = 0.0;
 
   if(strcmp(force->pair_style,"lj/cut/coul/cut")==0) {
@@ -196,8 +196,8 @@ double EVB_OffDiag::exch_chg_debye(int vflag)
     cut = (*p_cutoff);
     cut_sq = cut*cut;
   }
-  
-  double *q = atom->q; 
+
+  double *q = atom->q;
   double **f = atom->f;
   double **x = atom->x;
 
@@ -213,65 +213,65 @@ double EVB_OffDiag::exch_chg_debye(int vflag)
 
   for(int i=0; i<inum; i++) {
     bool iflag = false;
-    
+
     int atomi = ilist[i];
     if(is_exch_chg[atomi]) iflag = true;
-    
+
     int jnum = numneigh[atomi];
     int *jlist = firstneigh[atomi];
-    
+
     for(int j=0; j<jnum; j++) {
       int atomj = jlist[j];
-      atomj &=NEIGHMASK;	  
-      
+      atomj &=NEIGHMASK;
+
       bool jflag = false;
       if (is_exch_chg[atomj]) jflag = true;
-      
-      if( (iflag && (!jflag)) || (jflag && (!iflag)) ) {   
-	/*************************************************************/
-	/*************************************************************/
-	double qiqj = q[atomi] * q[atomj];
-	if (fabs(qiqj) > SMALL) {
-	  double dr[3],r2;
-	  VECTOR_SUB(dr,x[atomi],x[atomj]);
-	  VECTOR_R2(r2,dr);
-	  
-	  if (r2 < cut_sq) {
-	    double r = sqrt(r2);
-	    double r2inv = 1.0 / r2;
-	    double rinv = 1.0/ r;
-	    double screened = qqrd2e * qiqj * exp(-kappa*r) * full_neigh_scale;
-	    double ecoul = screened * rinv;
-	    double fpair = screened * (kappa+rinv) * r2inv * A_Rq;
-            
-	    double ftmpx = fpair * dr[0];
-	    double ftmpy = fpair * dr[1];
-	    double ftmpz = fpair * dr[2];
-            
-	    if(atomi < nlocal) ene+= ecoul;
-	    f[atomi][0] += ftmpx;
-	    f[atomi][1] += ftmpy;
-	    f[atomi][2] += ftmpz;
-            
-	    if (newton_pair || atomj < nlocal) {
-	      f[atomj][0] -= ftmpx;
-	      f[atomj][1] -= ftmpy;
-	      f[atomj][2] -= ftmpz;
-	    }
-	    
-	    if (vflag) {
-	      virial[0] += ftmpx * dr[0];
-	      virial[1] += ftmpy * dr[1];
-	      virial[2] += ftmpz * dr[2];
-	      virial[3] += ftmpx * dr[1];
-	      virial[4] += ftmpx * dr[2];
-	      virial[5] += ftmpy * dr[2];
-	    }
-	  }
-	}  
-	/*************************************************************/
-	/*************************************************************/	  
-        
+
+      if( (iflag && (!jflag)) || (jflag && (!iflag)) ) {
+        /*************************************************************/
+        /*************************************************************/
+        double qiqj = q[atomi] * q[atomj];
+        if (fabs(qiqj) > SMALL) {
+          double dr[3],r2;
+          VECTOR_SUB(dr,x[atomi],x[atomj]);
+          VECTOR_R2(r2,dr);
+
+          if (r2 < cut_sq) {
+            double r = sqrt(r2);
+            double r2inv = 1.0 / r2;
+            double rinv = 1.0/ r;
+            double screened = qqrd2e * qiqj * exp(-kappa*r) * full_neigh_scale;
+            double ecoul = screened * rinv;
+            double fpair = screened * (kappa+rinv) * r2inv * A_Rq;
+
+            double ftmpx = fpair * dr[0];
+            double ftmpy = fpair * dr[1];
+            double ftmpz = fpair * dr[2];
+
+            if(atomi < nlocal) ene+= ecoul;
+            f[atomi][0] += ftmpx;
+            f[atomi][1] += ftmpy;
+            f[atomi][2] += ftmpz;
+
+            if (newton_pair || atomj < nlocal) {
+              f[atomj][0] -= ftmpx;
+              f[atomj][1] -= ftmpy;
+              f[atomj][2] -= ftmpz;
+            }
+
+            if (vflag) {
+              virial[0] += ftmpx * dr[0];
+              virial[1] += ftmpy * dr[1];
+              virial[2] += ftmpz * dr[2];
+              virial[3] += ftmpx * dr[1];
+              virial[4] += ftmpx * dr[2];
+              virial[5] += ftmpy * dr[2];
+            }
+          }
+        }
+        /*************************************************************/
+        /*************************************************************/
+
       } // End of calculation
     } // End of loop atom j
   } // End of loop atom i
@@ -280,7 +280,7 @@ double EVB_OffDiag::exch_chg_debye(int vflag)
 }
 
 /* ---------------------------------------------------------------------- */
-/* Eqs. 18 & 19 of 
+/* Eqs. 18 & 19 of
    C. J. Fennell and J. D. Gezelter, JCP, 124(23), 234104 (2006) -------- */
 
 double EVB_OffDiag::exch_chg_wolf(int vflag)
@@ -288,7 +288,7 @@ double EVB_OffDiag::exch_chg_wolf(int vflag)
   int newton_pair = force->newton_pair;
   double qqrd2e = force->qqrd2e;
   int nlocal = atom->nlocal;
-  
+
   double ene = 0.0;
 
   if(strcmp(force->pair_style,"lj/cut/coul/cut")==0) {
@@ -305,8 +305,8 @@ double EVB_OffDiag::exch_chg_wolf(int vflag)
     cut = (*p_cutoff);
     cut_sq = cut*cut;
   }
-  
-  double *q = atom->q; 
+
+  double *q = atom->q;
   double **f = atom->f;
   double **x = atom->x;
 
@@ -321,91 +321,91 @@ double EVB_OffDiag::exch_chg_wolf(int vflag)
   if(evb_engine->evb_full_neigh) full_neigh_scale = 0.5;
 
   double scale = 2.0 * kappa / MY_PIS;  // 2 \alpha / sqrt(PI)
-    
+
   for(int i=0; i<inum; i++) {
     bool iflag = false;
-    
+
     int atomi = ilist[i];
     if(is_exch_chg[atomi]) iflag = true;
-    
+
     int jnum = numneigh[atomi];
     int *jlist = firstneigh[atomi];
-    
+
     for(int j=0; j<jnum; j++) {
       int atomj = jlist[j];
       atomj &= NEIGHMASK;
-      
+
       bool jflag = false;
       if (is_exch_chg[atomj]) jflag = true;
-      
-      if( (iflag && (!jflag)) || (jflag && (!iflag)) ) {   
-	/*************************************************************/
-	/*************************************************************/
-	double qiqj = q[atomi] * q[atomj];
-	if (fabs(qiqj) > SMALL) {
-	  double dr[3],r2;
-	  VECTOR_SUB(dr,x[atomi],x[atomj]);
-	  VECTOR_R2(r2,dr);
-	  
-	  if (r2 < cut_sq) {
-	    double r = sqrt(r2);
-	    double r2inv = 1.0 / r2;
-	    double rinv = 1.0/ r;
-	    double rcutinv = 1.0 / cut;
-	    
-	    double kr = kappa * r;
-	    double krcut = kappa * cut;
-	    // erfc(\alpha * r) / r
-	    double t = 1.0 / (1.0 + kr);
-	    double A = t * (EA1+t*(EA2+t*(EA3+t*(EA4+t*EA5)))) * rinv;
-	    // erfc(\alpha * rcut) / rcut
-	    t = 1.0 / (1.0 + krcut);
-	    double B = t * (EA1+t*(EA2+t*(EA3+t*(EA4+t*EA5)))) * rcutinv;
-	    
-	    double C = scale * rcutinv * exp(-krcut * krcut);
-	    double D = scale * rinv    * exp(-kr * kr);
-	    
-	    double ecoul = qqrd2e * qiqj * (A - B + (B * rcutinv + C) * (r - cut));
-	    double fpair = qqrd2e * qiqj * (( A * rinv + D - (B * rcutinv + C) ) * rinv) * full_neigh_scale;
-	    
-	    double ftmpx = fpair * dr[0];
-	    double ftmpy = fpair * dr[1];
-	    double ftmpz = fpair * dr[2];
-            
-	    if(atomi < nlocal) ene+= ecoul;
-	    f[atomi][0] += ftmpx;
-	    f[atomi][1] += ftmpy;
-	    f[atomi][2] += ftmpz;
-            
-	    if (newton_pair || atomj < nlocal) {
-	      f[atomj][0] -= ftmpx;
-	      f[atomj][1] -= ftmpy;
-	      f[atomj][2] -= ftmpz;
-	    }
-	    
-	    if (vflag) {
-	      virial[0] += ftmpx * dr[0];
-	      virial[1] += ftmpy * dr[1];
-	      virial[2] += ftmpz * dr[2];
-	      virial[3] += ftmpx * dr[1];
-	      virial[4] += ftmpx * dr[2];
-	      virial[5] += ftmpy * dr[2];
-	    }
-	  }
-	}  
-	/*************************************************************/
-	/*************************************************************/	  
-        
+
+      if( (iflag && (!jflag)) || (jflag && (!iflag)) ) {
+        /*************************************************************/
+        /*************************************************************/
+        double qiqj = q[atomi] * q[atomj];
+        if (fabs(qiqj) > SMALL) {
+          double dr[3],r2;
+          VECTOR_SUB(dr,x[atomi],x[atomj]);
+          VECTOR_R2(r2,dr);
+
+          if (r2 < cut_sq) {
+            double r = sqrt(r2);
+            double r2inv = 1.0 / r2;
+            double rinv = 1.0/ r;
+            double rcutinv = 1.0 / cut;
+
+            double kr = kappa * r;
+            double krcut = kappa * cut;
+            // erfc(\alpha * r) / r
+            double t = 1.0 / (1.0 + kr);
+            double A = t * (EA1+t*(EA2+t*(EA3+t*(EA4+t*EA5)))) * rinv;
+            // erfc(\alpha * rcut) / rcut
+            t = 1.0 / (1.0 + krcut);
+            double B = t * (EA1+t*(EA2+t*(EA3+t*(EA4+t*EA5)))) * rcutinv;
+
+            double C = scale * rcutinv * exp(-krcut * krcut);
+            double D = scale * rinv    * exp(-kr * kr);
+
+            double ecoul = qqrd2e * qiqj * (A - B + (B * rcutinv + C) * (r - cut));
+            double fpair = qqrd2e * qiqj * (( A * rinv + D - (B * rcutinv + C) ) * rinv) * full_neigh_scale;
+
+            double ftmpx = fpair * dr[0];
+            double ftmpy = fpair * dr[1];
+            double ftmpz = fpair * dr[2];
+
+            if(atomi < nlocal) ene+= ecoul;
+            f[atomi][0] += ftmpx;
+            f[atomi][1] += ftmpy;
+            f[atomi][2] += ftmpz;
+
+            if (newton_pair || atomj < nlocal) {
+              f[atomj][0] -= ftmpx;
+              f[atomj][1] -= ftmpy;
+              f[atomj][2] -= ftmpz;
+            }
+
+            if (vflag) {
+              virial[0] += ftmpx * dr[0];
+              virial[1] += ftmpy * dr[1];
+              virial[2] += ftmpz * dr[2];
+              virial[3] += ftmpx * dr[1];
+              virial[4] += ftmpx * dr[2];
+              virial[5] += ftmpy * dr[2];
+            }
+          }
+        }
+        /*************************************************************/
+        /*************************************************************/
+
       } // End of calculation
     } // End of loop atom j
   } // End of loop atom i
-  
+
   ene *= full_neigh_scale;
   return ene;
 }
 
 /* ---------------------------------------------------------------------- */
-/* Eqs. 21-23 of 
+/* Eqs. 21-23 of
    Q. Shi, P. Liu, and G. A. Voth, JPCB, 112(50), 16230-16237 (2008) ---- */
 
 double EVB_OffDiag::exch_chg_cgis(int vflag)
@@ -435,7 +435,7 @@ double EVB_OffDiag::exch_chg_cgis(int vflag)
     cut_sq = cut*cut;
   }
 
-  double *q = atom->q; 
+  double *q = atom->q;
   double **f = atom->f;
   double **x = atom->x;
 
@@ -470,79 +470,79 @@ double EVB_OffDiag::exch_chg_cgis(int vflag)
 
   for(int i=0; i<inum; i++) {
     bool iflag = false;
- 
+
     int atomi = ilist[i];
     if(is_exch_chg[atomi]) iflag = true;
- 
+
     int jnum = numneigh[atomi];
     int *jlist = firstneigh[atomi];
- 
+
     for(int j=0; j<jnum; j++) {
       int atomj = jlist[j];
       atomj &= NEIGHMASK;
-   
+
       bool jflag = false;
       if (is_exch_chg[atomj]) jflag = true;
-   
-      if( (iflag && (!jflag)) || (jflag && (!iflag)) ) {   
-	/*************************************************************/
-	/*************************************************************/
-	double qiqj = q[atomi] * q[atomj];
-	if (fabs(qiqj) > SMALL) {
-	  double dr[3],r2;
-	  VECTOR_SUB(dr,x[atomi],x[atomj]);
-	  VECTOR_R2(r2,dr);
-	  
-	  if (r2 < cut_sq) {
-	    double r = sqrt(r2);
-	    double rinv = 1.0 / r;
-	    double r2inv = rinv * rinv;
-	    
-	    double ecoul = rinv;
-	    double fpair = r2inv;
-	    
-	    if(r < cut_cgis) {
-	      ecoul += cgis_const - B2 * (r2 - cut_cgis2);
-	      fpair += B * r;
-	    } else {
-	      double dr = r - cut;
-	      double dr2 = dr * dr;
-	      ecoul += -rcutinv + A3 * dr2 * dr + B2 * dr2 + C * dr;
-	      fpair += -A * dr2 - B * dr - C;
-	    }
-	    
-	    ecoul*= qqrd2e * qiqj;
-	    fpair*= qqrd2e * qiqj * A_Rq * rinv * full_neigh_scale;
 
-	    double ftmpx = fpair * dr[0];
-	    double ftmpy = fpair * dr[1];
-	    double ftmpz = fpair * dr[2];
-         
-	    if(atomi < nlocal) ene+= ecoul;
-	    f[atomi][0] += ftmpx;
-	    f[atomi][1] += ftmpy;
-	    f[atomi][2] += ftmpz;
-         
-	    if (newton_pair || atomj < nlocal) {
-	      f[atomj][0] -= ftmpx;
-	      f[atomj][1] -= ftmpy;
-	      f[atomj][2] -= ftmpz;
-	    }
-	    
-	    if (vflag) {
-	      virial[0] += ftmpx * dr[0];
-	      virial[1] += ftmpy * dr[1];
-	      virial[2] += ftmpz * dr[2];
-	      virial[3] += ftmpx * dr[1];
-	      virial[4] += ftmpx * dr[2];
-	      virial[5] += ftmpy * dr[2];
-	    }
-         
-	  }
-	}  
-	/*************************************************************/
-	/*************************************************************/	  
-     
+      if( (iflag && (!jflag)) || (jflag && (!iflag)) ) {
+        /*************************************************************/
+        /*************************************************************/
+        double qiqj = q[atomi] * q[atomj];
+        if (fabs(qiqj) > SMALL) {
+          double dr[3],r2;
+          VECTOR_SUB(dr,x[atomi],x[atomj]);
+          VECTOR_R2(r2,dr);
+
+          if (r2 < cut_sq) {
+            double r = sqrt(r2);
+            double rinv = 1.0 / r;
+            double r2inv = rinv * rinv;
+
+            double ecoul = rinv;
+            double fpair = r2inv;
+
+            if(r < cut_cgis) {
+              ecoul += cgis_const - B2 * (r2 - cut_cgis2);
+              fpair += B * r;
+            } else {
+              double dr = r - cut;
+              double dr2 = dr * dr;
+              ecoul += -rcutinv + A3 * dr2 * dr + B2 * dr2 + C * dr;
+              fpair += -A * dr2 - B * dr - C;
+            }
+
+            ecoul*= qqrd2e * qiqj;
+            fpair*= qqrd2e * qiqj * A_Rq * rinv * full_neigh_scale;
+
+            double ftmpx = fpair * dr[0];
+            double ftmpy = fpair * dr[1];
+            double ftmpz = fpair * dr[2];
+
+            if(atomi < nlocal) ene+= ecoul;
+            f[atomi][0] += ftmpx;
+            f[atomi][1] += ftmpy;
+            f[atomi][2] += ftmpz;
+
+            if (newton_pair || atomj < nlocal) {
+              f[atomj][0] -= ftmpx;
+              f[atomj][1] -= ftmpy;
+              f[atomj][2] -= ftmpz;
+            }
+
+            if (vflag) {
+              virial[0] += ftmpx * dr[0];
+              virial[1] += ftmpy * dr[1];
+              virial[2] += ftmpz * dr[2];
+              virial[3] += ftmpx * dr[1];
+              virial[4] += ftmpx * dr[2];
+              virial[5] += ftmpy * dr[2];
+            }
+
+          }
+        }
+        /*************************************************************/
+        /*************************************************************/
+
       } // End of calculation
     } // End of loop atom j
   } // End of loop atom i
@@ -551,7 +551,9 @@ double EVB_OffDiag::exch_chg_cgis(int vflag)
   return ene;
 }
 
-/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- 
+  compute the real-space interaction between exchange and non-exchange charges
+------------------------------------------------------------------------- */
 
 double EVB_OffDiag::exch_chg_long(int vflag)
 {
@@ -560,21 +562,22 @@ double EVB_OffDiag::exch_chg_long(int vflag)
   return exch_chg_long_omp(vflag);
 #endif
 
-    double g_ewald = force->kspace->g_ewald;
+    double g_ewald = evb_engine->evb_kspace->g_ewald;
+    if (evb_engine->evb_kspace_cplx) g_ewald = evb_engine->evb_kspace_cplx->g_ewald;
     int newton_pair = force->newton_pair;
     double qqrd2e = force->qqrd2e;
     int nlocal = atom->nlocal;
-    
+
     double ene = 0.0;
     int itmp;
     double *p_cutoff = (double *) force->pair->extract((char*)("cut_coul"),itmp);
     cut = (*p_cutoff);
     cut_sq = cut*cut;
 
-    double *q = atom->q; 
+    double *q = atom->q;
     double **f = atom->f;
     double **x = atom->x;
-    
+
     NeighList *list = evb_engine->get_pair_list();
     int inum = list->inum;
     int *ilist = list->ilist;
@@ -583,78 +586,78 @@ double EVB_OffDiag::exch_chg_long(int vflag)
 
     // If full neighbor list, scale energies/forces by 0.5.
     double full_neigh_scale = 1.0;
-    if(evb_engine->evb_full_neigh) full_neigh_scale = 0.5;
+    if (evb_engine->evb_full_neigh) full_neigh_scale = 0.5;
 
-    for(int i=0; i<inum; i++) {
+    for (int i = 0; i < inum; i++) {
       bool iflag = false;
-      
+
       int atomi = ilist[i];
-      if(is_exch_chg[atomi]) iflag = true;
-      
+      if (is_exch_chg[atomi]) iflag = true;
+
       int jnum = numneigh[atomi];
       int *jlist = firstneigh[atomi];
-      
-      for(int j=0; j<jnum; j++) {
-	int atomj = jlist[j];
-	atomj &=NEIGHMASK;	  
-	
-	bool jflag = false;
-	if(is_exch_chg[atomj]) jflag = true;
-        
-	if( (iflag && (!jflag)) || (jflag && (!iflag)) ) {
-	  /*************************************************************/
-	  /*************************************************************/
-	  double qiqj = q[atomi] * q[atomj];
-	  if(fabs(qiqj) > SMALL) {
-	    double dr[3],r2;
-	    VECTOR_SUB(dr,x[atomi],x[atomj]);
-	    VECTOR_R2(r2,dr);
-            
-	    if (r2 < cut_sq) {
-	      double r = sqrt(r2);
-	      
-	      double grij = g_ewald * r;
-	      double expm2 = exp(-grij*grij);
-	      double t = 1.0 / (1.0 + EWALD_P*grij);
-	      double erfc = t * (EA1+t*(EA2+t*(EA3+t*(EA4+t*EA5)))) * expm2;
-	      double prefactor = qqrd2e * qiqj / r;
-	      double epair = prefactor * erfc;
-	      double fpair = epair + prefactor*EWALD_F*grij*expm2;
 
-	      fpair *= A_Rq / r2 * full_neigh_scale;
+      for (int j = 0; j < jnum; j++) {
+        int atomj = jlist[j];
+        atomj &=NEIGHMASK;
 
-	      double ftmpx = fpair * dr[0];
-	      double ftmpy = fpair * dr[1];
-	      double ftmpz = fpair * dr[2];
+        bool jflag = false;
+        if (is_exch_chg[atomj]) jflag = true;
 
-	      if(atomi < nlocal) ene += epair;
-	      f[atomi][0] += ftmpx;
-	      f[atomi][1] += ftmpy;
-	      f[atomi][2] += ftmpz;
-              
-	      if (newton_pair || atomj < nlocal) {
-		f[atomj][0] -= ftmpx;
-		f[atomj][1] -= ftmpy;
-		f[atomj][2] -= ftmpz;
-	      }
-              
-	      if (vflag) {
-		virial[0] += ftmpx * dr[0];
-		virial[1] += ftmpy * dr[1];
-		virial[2] += ftmpz * dr[2];
-		virial[3] += ftmpx * dr[1];
-		virial[4] += ftmpx * dr[2];
-		virial[5] += ftmpy * dr[2];
-	      }
-	    }
-	  }  
-	  /*************************************************************/
-	  /*************************************************************/	  
-          
-	} // End of calculation
+        if ( (iflag && (!jflag)) || (jflag && (!iflag)) ) {
+          /*************************************************************/
+          /*************************************************************/
+          double qiqj = q[atomi] * q[atomj];
+          if (fabs(qiqj) > SMALL) {
+            double dr[3],r2;
+            VECTOR_SUB(dr,x[atomi],x[atomj]);
+            VECTOR_R2(r2,dr);
+
+            if (r2 < cut_sq) {
+              double r = sqrt(r2);
+
+              double grij = g_ewald * r;
+              double expm2 = exp(-grij*grij);
+              double t = 1.0 / (1.0 + EWALD_P*grij);
+              double erfc = t * (EA1+t*(EA2+t*(EA3+t*(EA4+t*EA5)))) * expm2;
+              double prefactor = qqrd2e * qiqj / r;
+              double epair = prefactor * erfc;
+              double fpair = epair + prefactor*EWALD_F*grij*expm2;
+
+              fpair *= A_Rq / r2 * full_neigh_scale;
+
+              double ftmpx = fpair * dr[0];
+              double ftmpy = fpair * dr[1];
+              double ftmpz = fpair * dr[2];
+
+              if(atomi < nlocal) ene += epair;
+              f[atomi][0] += ftmpx;
+              f[atomi][1] += ftmpy;
+              f[atomi][2] += ftmpz;
+
+              if (newton_pair || atomj < nlocal) {
+                f[atomj][0] -= ftmpx;
+                f[atomj][1] -= ftmpy;
+                f[atomj][2] -= ftmpz;
+              }
+
+              if (vflag) {
+                virial[0] += ftmpx * dr[0];
+                virial[1] += ftmpy * dr[1];
+                virial[2] += ftmpz * dr[2];
+                virial[3] += ftmpx * dr[1];
+                virial[4] += ftmpx * dr[2];
+                virial[5] += ftmpy * dr[2];
+              }
+            }
+          }
+          /*************************************************************/
+          /*************************************************************/
+
+        } // End of calculation
       } // End of loop atom j
     } // End of loop atom i
-    
+
     ene *= full_neigh_scale;
     return ene;
 }

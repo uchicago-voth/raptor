@@ -1,0 +1,142 @@
+# MS-EVB simulation: ClC protein 
+# Continue simulation
+# Zhi (Shane) Yue, Dec-2022
+
+####################
+# Assign variables #
+####################
+
+variable name    string 1ots        # system name
+variable temp    string 300.0       # temperature, K   for real unit
+variable pres    string 1.0         # pressure,    atm for real unit
+variable lstep   string 1.0         # step length, fs  for real unit
+variable mdstep  index  100         # MD steps
+variable ene_frq index  10          # frequency of printing thermodynamic info (T, E, p...)
+variable rst_frq string 100         # frequency of writing  restart file
+variable trj_frq string 1000        # frequency of writing  trajectory
+
+variable cutcoul index 12.0         # real-space Coulombic cutoff 
+
+variable tdamp equal ${lstep}*100.0 # how rapidly (in time units) the temperature is relaxed
+variable pdamp string 1000.0        # how rapidly (in time units) the pressure    is relaxed
+
+variable kspace_cplx     index no
+variable partial_offload index yes
+variable mp_state        index 3    # use state decomposition with fix evb with multiple partitions
+
+##################
+# Basic settings #
+##################
+
+units     real  # unit style (real: Angstrom, femtosecond, kcal/mol, Kelvin, atmosphere ...)
+dimension 3     # 3D simulation
+boundary  p p p # periodic in x/y/z
+
+###################
+# Bonded settings #
+###################
+
+atom_style     full                  # atom style; molecular+charge for bio-molecules
+bond_style     hybrid harmonic morse # harmonic+morse potentials for bond
+angle_style    charmm                # charmm         potential  for angle (including Urey-Bradley term)
+dihedral_style charmm                # charmm         potential  for dihedral
+improper_style harmonic              # harmonic       potential  for improper
+
+#####################
+# Read restart file #
+#####################
+
+read_restart  md.restart # read restart file
+
+######################
+# Nonbonded settings #
+######################
+
+pair_style   lj/charmm/coul/long 10.0 12.0 ${cutcoul} # LJ with potential switch + long-range Coulombics
+pair_modify  mix arithmetic                           # Eps_ij = sqrt(Eps_i * Eps_j), Rmin_ij = (Rmin_i + Rmin_j) / 2
+kspace_style pppm 1e-5                                # particle-particle particle-mesh solver
+neighbor     2.0 bin                                  # cutnb = ctofnb + 2.0 (for units = real), may be increased to 3.0 for GPU runs
+neigh_modify delay 5 every 1 check yes one 10000      # update pairwise neighbor list heuristically
+
+#kspace_modify diff ad
+
+special_bonds charmm          # invoke 1-2,1-3,1-4 exclusion for CHARMM FF
+
+##################################
+# CMAP (read after restart file) #
+##################################
+
+fix        cmap all cmap charmm22.cmap # enable CHARMM CMAP
+fix_modify cmap energy yes             # add CMAP energy to the total potential energy
+
+#################################################################
+# User-defined bonded FF coefficients (read after restart file) #
+#################################################################
+
+include bond_coeff.inp
+
+####################################################################
+# User-defined nonbonded FF coefficients (read after restart file) #
+####################################################################
+
+#include pair_coeff.inp
+
+##################
+# Specify groups #
+##################
+
+group    CA   type 12 13 19             # Ca atoms (CT1, CT2, CP1)
+group    BB   type 10 12 13 19 24 27 28 # backbone atoms (C, CT1, CT2, CP1, N, NH1, NH2)
+group    WAT  type 4 36                 # waters (HT, OT)
+group    ION  type 53                   # ions (CLA)
+group    H3O  type 54 55                # hydronium (OTH, HTH)
+group    SOLV union WAT ION H3O         # solvent
+group    SOLU id 1:13597                # solute
+group    PROA id 1:6827                 # solute, chain A
+group    PROB id 6828:13597             # solute, chain B
+group    MEMB subtract all SOLU SOLV    # membrane
+
+variable hydr atom "mass == 1.008"      # assgin hydrogen mass to a variable
+group    HATM variable hydr             # hydrogen atoms
+group    HEAV subtract SOLU HATM        # solute heavy atoms
+
+group    RXNR id 2887 2904 2930 2942 2959 2979 3003 3024 3038 3057 3076 &
+                 6830 6854 6878 6895 6914 6933 6957 6974 6993 7012 7027 7051 7063 7085 7101 &
+                 9690 9707 9733 9745 9762 9782 9806 9827 9841 9860 9879 # Ca atoms of solute enclosing the PT pathway (chain A: 204-214; chain B: 18-32, 204-214)
+group    REST subtract CA RXNR                                          # Ca atoms to be restrained in MD
+
+###############
+# MD settings #
+###############
+
+timestep       ${lstep}                                  # step length
+
+#thermo_style   multi                                     # style of printing thermodynamic info.
+thermo_style   custom step temp pe etotal press cpu
+thermo_modify  flush yes                                 # invokes a flush operation after thermodynamic info. is written to the log file
+thermo         ${ene_frq}                                # compute & print thermodynamic info.
+
+fix            rca REST spring/self 2.4                  # restrain solute Ca atoms
+
+fix            nvt all nvt temp ${temp} ${temp} ${tdamp} # run under NVT ensemble
+
+fix            evb all evb evb.cfg evb.out evb.top partial_offload=${partial_offload} kspace_cplx=${kspace_cplx}  # call MS-EVB
+
+dump           trj all custom ${trj_frq} md.lammpstrj &
+                       id type mol x y z q               # style for writing trajectory
+dump_modify    trj sort id                               # modify dump settings
+
+#restart        ${rst_frq} md.restart1 md.restart2        # style for writing restart file
+
+reset_timestep 0
+
+run            ${mdstep}                                 # run MD for specified steps
+
+write_dump     all custom final.dump id type q x y z fx fy fz modify sort id
+
+#write_restart  md.restart                                # write (final) restart file
+#write_data     md.data pair ij                           # write (final) data file with i-j pair coefficient info.
+
+#unfix          rca                                       # delete fixes applied during MD
+#unfix          nvt
+#unfix          evb                                       # MUST unfix EVB after 'write_restart'

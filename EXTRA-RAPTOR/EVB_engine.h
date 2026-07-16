@@ -22,16 +22,16 @@ namespace LAMMPS_NS {
 /*------------------------------------------------------------------------*/
 
 class EVB_Engine : protected Pointers
-{ 
+{
  public:
 
   // Charactor string for names of I/O files
 
   char cfg_name[255];   // .cfg - models and parameters
   char out_name[255];   // .out - simulation output
-  char top_name[255];   // .top - initial topology, when using [read_data] 
+  char top_name[255];   // .top - initial topology, when using [read_data]
   FILE * fp_cfg_out;    // output of processed cfg file
-  
+
   // Physical properties
   int natom;            // # of total atoms = atom->nlocal + atom->ghost
   double virial[6];     // system virial from MS-EVB
@@ -39,7 +39,7 @@ class EVB_Engine : protected Pointers
   double cplx_energy;   // complex energy = E(cplx-cplx) + E(cplx-env)
   double inter_energy;  // inter-energy among complexes, if multi-center
   double env_energy;    // enviroment energy : E(env-env)
-  
+
   // RC(reaction center) information
   int ncenter;           // # of reaction centers
   int nreact;            // # of reactions happened in current step
@@ -48,12 +48,15 @@ class EVB_Engine : protected Pointers
   int *rc_molecule;      // Array: # of centers: molecule ID for each RC
   int *rc_molecule_prev; // Array: # of centers: molecule ID for each RC from previous step
   int *rc_rank;          // Array: # of centers: rank ID for each RC
+  int need_update_pair_list; // 1 if reaction occurs
+
+  int cplx_map_changed;   // 1 if any complex map is changed between consecutive neighbor builds
 
   // EVB Object
-  class EVB_KSpace      *evb_kspace;
+  class EVB_KSpace      *evb_kspace, *evb_kspace_cplx;
   class EVB_Type        *evb_type;
   class EVB_Chain       *evb_chain;
-  class EVB_List        *evb_list;    
+  class EVB_List        *evb_list;
   class EVB_Reaction    *evb_reaction;
   class EVB_Output      *evb_output;
   class EVB_EffPair     *evb_effpair;
@@ -64,44 +67,44 @@ class EVB_Engine : protected Pointers
   class EVB_Matrix      *evb_matrix;
   class EVB_Repulsive   *evb_repulsive;
   class EVB_OffDiag     *evb_offdiag;
-  class EVB_MatrixFull  *full_matrix;	
-  
+  class EVB_MatrixFull  *full_matrix;
+
   // EVB Object arrays, based on ncenter
   class EVB_Complex    **all_complex;
   class EVB_MatrixSCI  **all_matrix;
   class EVB_Repulsive  **all_repulsive;
   class EVB_OffDiag    **all_offdiag;
-  
+
   // Topology information
   int* mol_type;         // molecule type
   int* mol_index;        // molecule index
   double* charge;        // effective charges
-  
+
   // for repulsive terms
   int nrepulsive;        // # of repulsive terms
-  
-  // for molecule map    
+
+  // for molecule map
   int nmolecule;         // # of molecules
   int atoms_per_molecule;// max # of atoms of a molecule
   int **molecule_map;    // molecule topology
                          // molecule_map[i][0] # of domain atoms in moleclue i
                          // molecule_map[i][j] # domain index of atom j in molecule i
-  
+
   // for EVB complex map
   int ncomplex;          // # of EVB complex
   int *complex_molecule; // Array: # of molecules: complex ID this molecule belongs, 0 is env atoms
   int *complex_atom;     // Array: max # of atoms: complex ID of this atoms, 0 is env atoms
   int *kernel_atom;      // Array: max # of atoms: complex ID is it is a kernel atom
   int complex_atom_size; // max # of atoms in this domain
-  
+
   // for kspace
   bool bEffKSpace;                   // If use effective charge
   bool bDelayEff;                    // If kspace is delayed to called, e.g. fix_umbrella
   double qsqsum_env, qsqsum_sys;     // Stored sum of q^2 for env and system
-  
+
   // for state-search
   int bRefineStates;     // If refining states, by EVB2 state-search
-  int bExtraCouplings;   // If calculating extra couplings 
+  int bExtraCouplings;   // If calculating extra couplings
 
   // for effective VDW parameters in SCI
   double *max_coeff;      //
@@ -120,13 +123,17 @@ class EVB_Engine : protected Pointers
 
   // lammps pointers;
   double  **lmp_f;       // store original per-atom force array
-  
+
   // hybrid force flag
   bool bHybridPair;
   bool bHybridBond;
   bool bHybridAngle;
   bool bHybridDihedral;
   bool bHybridImproper;
+
+  // kspace terms options
+  bool use_kspace_cplx;      // true if using a separate Kspace solver (def: false)
+  bool partial_gpu_offload;  // true if only env diag is ported to the GPU (def: false)
 
   // Pair List
   class NeighList* get_pair_list();
@@ -136,8 +143,8 @@ class EVB_Engine : protected Pointers
   void Force_Reduce_f(); // " for atom->f
   void Force_Clear(int); // Clear OpenMP threaded force data or atom->f pointer
   int has_complex_atom;  // Flag for my rank has an atom belonging to complex
-  int has_exch_chg;      // Flag for my rank has an exchange charge 
-  void check_for_special_atoms(); // function to determine has_complex_atom
+  int has_exch_chg;      // Flag for my rank has an exchange charge
+  void check_for_complex_atoms(); // function to determine has_complex_atom
 
 #ifdef RELAMBDA
   int lambda_flag;       // Flag for doing replica exchange lambda
@@ -149,7 +156,7 @@ class EVB_Engine : protected Pointers
   int  flag_mp_state;    // off or on
   int * comm_list;       // communication list between partitions
   MPI_Comm force_comm;   // Collective force communicator
-  int group_rank;        // Rank in force group 
+  int group_rank;        // Rank in force group
   int group_root;        // Universe rank of root of force group
   void Communicate_Between_Partitions(int, int, int);   // Communicates b/w partitions
   void Communicate_Force_Between_Partitions(double **); // Communicates given force b/w partitions
@@ -159,35 +166,35 @@ class EVB_Engine : protected Pointers
  public:
   EVB_Engine(class LAMMPS *, char*, char*, char*);
   virtual ~EVB_Engine();
-  
+
  public:
-  
-  // basic functions 
+
+  // basic functions
   void construct();
-  void init();    
-  
+  void init();
+
   void execute(int);
-  
+
   void pre_process(int);
   void compute(int);
   void post_process(int);
-  
+
   void count_rc();
   void locate_rc();
-  
-  void build_molecule_map();    
+
+  void build_molecule_map();
   void update_molecule_map();
-  
+
   void state_search();
   void compute_diagonal(int);
   void compute_repulsive(int);
-  
+
   // SCI-MS-EVB functions
   void delete_overlap();
   void sci_iteration(int);
   void sci_initialize(int);
   void sci_finalize(int);
-  
+
   // Methods to compute PPPM forces in SCI simulations
   int engine_indicator;
   void sci_pppm_polar();
@@ -198,18 +205,18 @@ class EVB_Engine : protected Pointers
 
   // debug functions
   void output_matrix();
-  void finite_difference_force();  
+  void finite_difference_force();
   void finite_difference_virial();
   void finite_difference_amplitude();
   void finite_difference_cec();
- 
+
   // data functions
   void init_kspace();
   void data_top();
   int  data_offdiag(char*, int*, int, int);
   int  data_repulsive(char*, int*, int, int);
   int  data_extension(char*, int*, int, int);
-  
+
   // FULL-EFFECTIVE-CHARGE-METHOD
   int flag_ACC;
   int flag_DIAG_QEFF;
@@ -314,7 +321,7 @@ class EVB_Engine : protected Pointers
   void screen_states_mp(int);
   void screen_delete_states_mp(int);
   void screen_delete_states_comm_mp();
-  
+
 #ifdef DLEVB_MODEL_SUPPORT
   bool EVB14;
   void compute_LJ14(int);
@@ -327,6 +334,8 @@ class EVB_Engine : protected Pointers
 #ifdef _RAPTOR_GPU
   class Fix* fix_gpu;
   void get_gpu_data();
+  void set_gpu_pair_offload(bool);
+  bool get_gpu_pair_offload();
 #endif
   int evb_full_neigh; // Indicate if full neighbor list built (default is half)
                       // This affects calculation of Vij_ex_short in off-diagonals: scale energies/forces by 0.5.
@@ -339,12 +348,14 @@ class EVB_Engine : protected Pointers
   double efieldz;
   double efield_energy_env;
   void compute_efield(int,int);
+
+  bool first;
 };
-  
+
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
-  
+
 }
 
 #endif

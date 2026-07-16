@@ -33,13 +33,13 @@ class EVB_MatrixFull : public EVB_Matrix
   void clear(bool,bool,bool,bool);
   void compute_hellmann_feynman(int);
   void compute_hellmann_feynman_omp(int); // ** AWGL ** //
- 
+
   /* ----------------------------------------------------------------------
      The JACOBI diagonalization is written by Wim R. Cardoen 08/20/2009
   ------------------------------------------------------------------------- */
   void jacobi(double **, int, double *, double **, int *);
 };
-  
+
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/

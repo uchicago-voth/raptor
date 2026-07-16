@@ -66,10 +66,10 @@ void EVB_Engine::finite_difference_virial()
     double delta = half_delta*2;
     double delta2 = -delta;
     int nall=atom->nlocal+atom->nghost;
-    
+
     double dudc[6];
-    
-    execute(true); 
+
+    execute(true);
     MPI_Allreduce(virial,dudc,6,MPI_DOUBLE,MPI_SUM,world);
 
     // diagonal element of analytical dU/dC
@@ -77,25 +77,25 @@ void EVB_Engine::finite_difference_virial()
     dudc[0] /= domain->xprd;
     dudc[1] /= domain->yprd;
     dudc[2] /= domain->zprd;
-    
+
     if (comm->me == 0) {
         fprintf(screen,"\nfinite difference on cell force:");
         fprintf(screen,"\nDrt:    Analytical:     Numerical: \n");
     }
-    
+
     for (int i = 0; i < 3; i++) {
-        
+
         CHANGE_SIZE(i,half_delta,nall);
-        execute(true); 
+        execute(true);
         double pe1 = full_matrix->ground_state_energy+full_matrix->e_env[EDIAG_POT];
-        
+
         CHANGE_SIZE(i,delta2,nall);
-        execute(true); 
+        execute(true);
         double pe2 = full_matrix->ground_state_energy+full_matrix->e_env[EDIAG_POT];
-        
+
         CHANGE_SIZE(i,half_delta,nall);
         double fd = (pe1-pe2)/delta;
-        
+
         if (comm->me == 0)
             fprintf(screen,"%2d      %5.5f       %5.5f \n",i+1,dudc[i],fd);
     }
@@ -117,11 +117,11 @@ void EVB_Engine::finite_difference_force()
 
   double half_delta = 0.001;
   double delta = half_delta*2;
-  
+
   for(int i=0; i<atom->nlocal+atom->nghost; i++)
     for(int j=0; j<3; j++)
-	  atom->f[i][j]=0.0;
-  
+          atom->f[i][j]=0.0;
+
   execute(false);
   comm->reverse_comm();
 
@@ -167,14 +167,14 @@ void EVB_Engine::finite_difference_force()
   for (int j=0; j<atom->nlocal; j++) {
     for(int i=0; i<atom->nlocal*3; i++) {
       if(atom->tag[i/3] != j+1) continue;
-      
+
       // central difference
 #if 1
-      xx[i]+=half_delta; 
+      xx[i]+=half_delta;
       comm->forward_comm();
-      execute(false); 
+      execute(false);
       double pre_ene = energy;
-      
+
       xx[i]-=delta;
       comm->forward_comm();
       execute(false);
@@ -185,11 +185,11 @@ void EVB_Engine::finite_difference_force()
 
       // 5-pt stencil
 #if 0
-      xx[i]+=delta; 
+      xx[i]+=delta;
       comm->forward_comm();
-      execute(false); 
+      execute(false);
       const double ene_p2 = -energy;
-      
+
       xx[i]-=half_delta;
       comm->forward_comm();
       execute(false);
@@ -199,7 +199,7 @@ void EVB_Engine::finite_difference_force()
       comm->forward_comm();
       execute(false);
       const double ene_m1 = -8.0 * energy;
-      
+
       xx[i]-=half_delta;
       comm->forward_comm();
       execute(false);
@@ -209,7 +209,7 @@ void EVB_Engine::finite_difference_force()
 
       xx[i]+=delta;
 #endif
-      
+
       double error_f = ff[i] - force;
       double abs_error = fabs(error_f);
       if(abs_error >  0.01) count[0]++;
@@ -226,33 +226,33 @@ void EVB_Engine::finite_difference_force()
       // How much time remaining?
       ii++;
       double time_remaining = ((MPI_Wtime() - tstart) / ii) * (3*atom->nlocal - ii);
-      
+
       fprintf(screen,"%3d [%d] type = %d  cplx_id = %d\tanalytic=:%12lf\tnumeric=%12lf\terror=%12lf\ttime=%15lf",
-	      j,i%3,atom->type[i/3],cplx_id,ff[i],force,error_f,time_remaining);
+              j,i%3,atom->type[i/3],cplx_id,ff[i],force,error_f,time_remaining);
       if(abs_error > 1.0) fprintf(stdout,"  *****\n");
       else fprintf(stdout,"\n");
       fprintf(logfile,"%3d [%d] type = %d  cplx_id = %d\tanalytic=:%12lf\tnumeric=%12lf\terror=%12lf\ttime=%15lf\n",
-	      j,i%3,atom->type[i/3],cplx_id,ff[i],force,error_f,time_remaining);
+              j,i%3,atom->type[i/3],cplx_id,ff[i],force,error_f,time_remaining);
     }
   }
 
   double scale = 100.0 / (atom->nlocal * 3.0);
   fprintf(screen,"\n# of forces larger than 0.01 = %d(%4.2f%%)  0.1 = %d(%4.2f%%)  1.0 = %d(%4.2f%%)  10.0 = %d(%4.2f%%)  error_sq= %f.\n",
-	  count[0],double (count[0]) * scale,
-	  count[1],double (count[1]) * scale,
-	  count[2],double (count[2]) * scale,
-	  count[3],double (count[3]) * scale,
-	  error_sq);
-  
+          count[0],double (count[0]) * scale,
+          count[1],double (count[1]) * scale,
+          count[2],double (count[2]) * scale,
+          count[3],double (count[3]) * scale,
+          error_sq);
+
   fprintf(screen,"\nENV:    error_sq= %f  error_sq_max= %f.\n",error_sq_list[0],error_sq_max_list[0]);
   for(int i=1; i<ncomplex+1; i++) fprintf(screen,"CPLX %i: error_sq= %f  error_sq_max= %f.\n",i,error_sq_list[i],error_sq_max_list[i]);
 
   fprintf(logfile,"\n# of forces larger than 0.01 = %d(%4.2f%%)  0.1 = %d(%4.2f%%)  1.0 = %d(%4.2f%%)  10.0 = %d(%4.2f%%)  error_sq= %f.\n",
-	  count[0],double (count[0]) * scale,
-	  count[1],double (count[1]) * scale,
-	  count[2],double (count[2]) * scale,
-	  count[3],double (count[3]) * scale,
-	  error_sq);
+          count[0],double (count[0]) * scale,
+          count[1],double (count[1]) * scale,
+          count[2],double (count[2]) * scale,
+          count[3],double (count[3]) * scale,
+          error_sq);
 
   fprintf(logfile,"\nENV:    error_sq= %f  error_sq_max= %f.\n",error_sq_list[0],error_sq_max_list[0]);
   for(int i=1; i<ncomplex+1; i++) fprintf(logfile,"CPLX %i: error_sq= %f  error_sq_max= %f.\n",i,error_sq_list[i],error_sq_max_list[i]);
@@ -274,34 +274,34 @@ void EVB_Engine::finite_difference_cec()
 
   double half_delta = 0.0001;
   double delta = half_delta*2;
-  
+
   double k = 1000.0;
-  
+
   if (comm->me == 0)
       fprintf(screen,"\nfinite difference on atomic force:\n");
-  
+
   double *xx = &(atom->x[0][0]);
 
   for(int i=0; i<atom->nlocal*3; i++)
   {
-      xx[i]+=half_delta; 
+      xx[i]+=half_delta;
       comm->forward_comm();
-      execute(false); 
-      
+      execute(false);
+
       double cec1[3];
       memcpy(cec1, all_complex[0]->cec->r_cec, sizeof(double)*3);
       double U1=(cec1[0]-2.0)*(cec1[0]-2.0)+(cec1[1]-2.0)*(cec1[1]-2.0)+(cec1[2]-2.0)*(cec1[2]-2.0);
-      
+
       xx[i]-=delta;
       comm->forward_comm();
       execute(false);
-      
+
       double cec2[3];
       memcpy(cec2, all_complex[0]->cec->r_cec, sizeof(double)*3);
       double U2=(cec2[0]-2.0)*(cec2[0]-2.0)+(cec2[1]-2.0)*(cec2[1]-2.0)+(cec2[2]-2.0)*(cec2[2]-2.0);
-      
+
       double dU = 0.5*k*(U2-U1)/delta;
-          
+
       if (i%3==0) fprintf(screen,"[%d]  %lf", atom->tag[i/3],dU);
       if (i%3==1) fprintf(screen,"  %lf",dU);
       if (i%3==2) fprintf(screen,"  %lf\n",dU);
@@ -322,14 +322,14 @@ void EVB_Engine::finite_difference_amplitude()
 
   double half_delta = 0.0002;
   double delta = half_delta*2;
-  
+
   int nlocal = atom->nlocal;
   int nall = nlocal + atom->nghost;
   if(nall==0) return;
 
   double **x = atom->x;
   int *tag = atom->tag;
-  
+
   int istart = 1967;
   int iend = 1970;
 
@@ -339,7 +339,7 @@ void EVB_Engine::finite_difference_amplitude()
   for(int itag=istart; itag<=iend; itag++)
   {
       double dev[3];
-      
+
       for(int d=0; d<3; d++)
       {
           double C1,C2;
@@ -352,11 +352,11 @@ void EVB_Engine::finite_difference_amplitude()
           ground = evb_matrix->ground_state;
           pivot = evb_matrix->pivot_state;
           C1 = evb_matrix->unitary[pivot][ground];
-          
-          
+
+
           for(int i=0; i<nall; i++) if(tag[i]==itag)
               x[i][d]+=delta;
-          
+
           execute(false);
 
           ground = evb_matrix->ground_state;
@@ -371,7 +371,7 @@ void EVB_Engine::finite_difference_amplitude()
 
       if(comm->me==0) fprintf(screen,"X[%d]=%lf\tY[%d]=%lf\tZ[%d]=%lf\n",
                               itag,dev[0],itag,dev[1],itag,dev[2]);
-      
+
   }
 }
 
@@ -381,26 +381,26 @@ void EVB_OffDiag::finite_difference_test()
 {
   double half_delta = 0.001;
   double delta = half_delta*2;
-  
+
   int nall = atom->nlocal+atom->nghost;
   if(nall==0) return;
-  
+
   double **f;
   memory->create(f,nall,3,"EVB_Rep_Hydrolium::finite_difference_test()");
   memset(&(f[0][0]),0,sizeof(double)*nall*3);
-  
+
   double **lmp_f = atom->f;
   atom->f = f;
   compute(false);
   atom->f = lmp_f;
-  
+
   double *xx = &(atom->x[0][0]);
   double *ff = &(f[0][0]);
-  
+
   fprintf(screen,"*********************************************************\n");
   fprintf(screen," This is the finite difference test for OffDiag terms:\n");
   fprintf(screen,"*********************************************************\n");
-  
+
   for(int i=0; i<nall*3; i++) if(ff[i]!=0)
   {
     xx[i]+=half_delta;
@@ -412,7 +412,7 @@ void EVB_OffDiag::finite_difference_test()
     fprintf(screen,"%3d[%d]:\tanalytic=:%12lf\tnumeric=%12lf\terror=%12lf\n",atom->tag[i/3],i%3,ff[i],force,ff[i]-force);
     xx[i]+=half_delta;
   }
-  
+
   memory->destroy(f);
   exit(0);
 }
@@ -424,39 +424,39 @@ void EVB_Repulsive::finite_difference_test()
 {
   double half_delta = 0.00001;
   double delta = half_delta*2;
-  
+
   int nall = atom->nlocal+atom->nghost;
   if(nall==0) return;
-  
+
   double **f;
   memory->create(f,nall,3,"EVB_Rep_Hydrolium::finite_difference_test()");
   memset(&(f[0][0]),0,sizeof(double)*nall*3);
-  
+
   double **lmp_f = atom->f;
   atom->f = f;
   compute(false);
   atom->f = lmp_f;
-  
+
   double *xx = &(atom->x[0][0]);
   double *ff = &(f[0][0]);
-  
+
   fprintf(screen,"*********************************************************\n");
   fprintf(screen," This is the finite difference test for repulsive terms:\n");
   fprintf(screen,"*********************************************************\n");
-  
+
   for(int i=0; i<nall*3; i++) if(ff[i]!=0)
   {
     xx[i]+=half_delta;
-	compute(false);
-	double pre_ene = energy;
-	xx[i]-=delta;
-	compute(false);
-	double force = -(pre_ene-energy)/delta;
-	
-	fprintf(screen,"%3d[%d]:\tanalytic=:%12lf\tnumeric=%12lf\terror=%12lf\n",i/3,i%3,ff[i],force,ff[i]-force);
-	xx[i]+=half_delta;
+        compute(false);
+        double pre_ene = energy;
+        xx[i]-=delta;
+        compute(false);
+        double force = -(pre_ene-energy)/delta;
+
+        fprintf(screen,"%3d[%d]:\tanalytic=:%12lf\tnumeric=%12lf\terror=%12lf\n",i/3,i%3,ff[i],force,ff[i]-force);
+        xx[i]+=half_delta;
   }
-  
+
   memory->destroy(f);
   exit(0);
 }

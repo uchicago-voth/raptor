@@ -55,20 +55,20 @@ EVB_OffDiag_DA_Table::EVB_OffDiag_DA_Table(LAMMPS *lmp, EVB_Engine *engine) : EV
 {
   etp_A_exch = etp_B_exch = n_A_exch = n_B_exch = 0;
   q_A_exch = q_B_exch = q_A_save = q_B_save = NULL;
-  
+
   size_exch_chg = 0;
   is_exch_chg = exch_list = NULL;
 
   ntables = 0;
   tables = NULL;
- 
+
 #ifdef OUTPUT_3BODY
   if(comm->me==0)
   {
     fp = fopen("3body.dat","w");
     timestep = center = -1;
   }
-#endif 
+#endif
 }
 
 /* ---------------------------------------------------------------------- */
@@ -102,15 +102,15 @@ int EVB_OffDiag_DA_Table::checkout(int* _index)
   natom = atom->nlocal + atom->nghost;
 
   icomplex = evb_complex->id-1;
-  istate = evb_complex->current_status;  
-  
+  istate = evb_complex->current_status;
+
   mol_A = evb_complex->molecule_A[istate];
   mol_B = evb_complex->molecule_B[istate];
 
   int m1, m2;
   if(mol_A_Rq[0]==1) m1 = mol_A; else m1 = mol_B;
   if(mol_A_Rq[1]==1) m2 = mol_A; else m2 = mol_B;
-        
+
   _index[0] = map[m1][atom_A_Rq[0]];
   _index[1] = map[m2][atom_A_Rq[1]];
 
@@ -122,17 +122,17 @@ int EVB_OffDiag_DA_Table::checkout(int* _index)
 int EVB_OffDiag_DA_Table::data_offdiag(char *buf, int* offset, int start, int end)
 {
   int t = start;
-  
+
   FILE * fp = evb_engine->fp_cfg_out;
 
   // Input atom index for geometry part
-  
-  // three-body index  
+
+  // three-body index
   mol_A_Rq [DATOM] = atoi(buf+offset[t++]);
   atom_A_Rq[DATOM] = atoi(buf+offset[t++]);
-  mol_A_Rq [AATOM] = atoi(buf+offset[t++]);  
+  mol_A_Rq [AATOM] = atoi(buf+offset[t++]);
   atom_A_Rq[AATOM] = atoi(buf+offset[t++]);
-  
+
   if(universe->me == 0) {
     fprintf(fp,"   Identity of particle 1: molecule= %i  index= %i.\n",mol_A_Rq[DATOM],atom_A_Rq[DATOM]);
     fprintf(fp,"   Identity of particle 2: molecule= %i  index= %i.\n",mol_A_Rq[AATOM],atom_A_Rq[AATOM]);
@@ -145,10 +145,10 @@ int EVB_OffDiag_DA_Table::data_offdiag(char *buf, int* offset, int start, int en
     if(type_A_Rq == 1) fprintf(fp,"   Using symmetric coordinate.\n");
     else fprintf(fp,"   Using asymmetric coordinate.\n");
   }
-  
+
   if(comm->me && screen) fprintf(screen,"[EVB] OffDiag_DA_Table\n");
   ntables = 1;
-  
+
   char *file = buf+offset[t++];
   char *tstyle = buf+offset[t++];
 
@@ -160,9 +160,9 @@ int EVB_OffDiag_DA_Table::data_offdiag(char *buf, int* offset, int start, int en
 
   if(strcmp(tstyle,"LINEAR") == 0) tabstyle = LINEAR;
   else error->all(FLERR,"EVB_OffDiag_DA_Table: Unsupported table style");
-  
+
   tablength = atoi( buf+offset[t++] );
-  
+
   if(universe->me == 0) fprintf(fp,"\n   Number of grid points: tablength= %i.\n\n",tablength);
 
   char *keyword[1];
@@ -170,12 +170,12 @@ int EVB_OffDiag_DA_Table::data_offdiag(char *buf, int* offset, int start, int en
     keyword[i] = buf+offset[t++];
     cutoff[i]  = atof( buf+offset[t++]);
   }
-  
+
   if(universe->me == 0) for(int i=0; i<ntables; i++) fprintf(fp,"   i= %i  keyword= %s  cutoff= %f.\n",i,keyword[i],cutoff[i]);
-  
+
   // Initialize MS-EVB Tables for atom transfer geometric factor
   MPI_Comm_rank(world,&me);
-  
+
   for (int i=0; i < ntables; i++) {
     tables = (Table *)
       memory -> srealloc(tables, (i+1)*sizeof(Table),"evb_offdiag_da_table:tables");
@@ -183,18 +183,18 @@ int EVB_OffDiag_DA_Table::data_offdiag(char *buf, int* offset, int start, int en
     null_table(tb);
     if(me==0) read_table(tb,file,keyword[i]);
     bcast_table(tb);
-    
+
     tb->cut = cutoff[i];
     tb->match = 0;
-    if (tabstyle == LINEAR && tb->ninput == tablength && 
-	tb->rflag == RSQ && tb->rhi == tb->cut) tb->match = 1;
-    
+    if (tabstyle == LINEAR && tb->ninput == tablength &&
+        tb->rflag == RSQ && tb->rhi == tb->cut) tb->match = 1;
+
     // spline read-in values and compute r,e,f vectors within table
-    
+
     if (tb->match == 0) spline_table(tb);
     compute_table(tb);
   }
-  
+
   if(type_A_Rq == 2) { // Asymmetry type
     _rs  =atof(buf+offset[t++]);
     _l   =atof(buf+offset[t++]);
@@ -202,11 +202,11 @@ int EVB_OffDiag_DA_Table::data_offdiag(char *buf, int* offset, int start, int en
 
     if(universe->me == 0) fprintf(fp,"\n   Asymmetric coordinate parameters: _rs= %f  _l= %f  _RDA= %f.\n",_rs,_l,_RDA);
   }
-  
+
   // Input Vij information
   Vij_const = atof(buf+offset[t++]);
   is_Vij_ex = atoi(buf+offset[t++]);
-  
+
   if(universe->me == 0) {
     fprintf(fp,"\n   Off-diagonal definition: VIJ= (VIJ_CONST + V_EX) * A_GEO.\n");
     fprintf(fp,"\n   VIJ_CONST= %f\n",Vij_const);
@@ -220,24 +220,24 @@ int EVB_OffDiag_DA_Table::data_offdiag(char *buf, int* offset, int start, int en
       evb_engine->flag_DIAG_QEFF = 1;
       if(universe->me == 0) fprintf(fp,"   kappa= %f\n",kappa);
     }
-    
+
     if(is_Vij_ex==3) {
       kappa = atof(buf+offset[t++]);
       evb_engine->flag_DIAG_QEFF = 1;
       if(universe->me == 0) fprintf(fp,"   kappa= %f\n",kappa);
     }
-    
+
     if(is_Vij_ex==4) evb_engine->flag_DIAG_QEFF = 1;
 
     if(is_Vij_ex==5) evb_engine->flag_DIAG_QEFF = 1;
-    
+
     // Input and setup exchange charges
     qsum_exch = qsum_save = qsqsum_exch = qsqsum_save =0.0;
-    
+
     char* type_name;
     char errline[255];
     int type_id;
-    
+
     type_name = buf+offset[t++];
     etp_A_exch = evb_type->get_type(type_name);
 
@@ -247,27 +247,27 @@ int EVB_OffDiag_DA_Table::data_offdiag(char *buf, int* offset, int start, int en
       sprintf(errline,"[EVB] Undefined molecule_type [%s].", type_name);
       error->all(FLERR,errline);
     }
-    
+
     type_name = buf+offset[t++];
     etp_B_exch = evb_type->get_type(type_name) ;
-    
+
     if(universe->me == 0) fprintf(fp,"   Second molecule in exchange complex is %s: type= %i.\n",type_name,etp_B_exch);
- 
+
     if(etp_B_exch==-1) {
       sprintf(errline,"[EVB] Undefined molecule_type [%s].", type_name);
       error->all(FLERR,errline);
     }
-    
+
     n_A_exch = evb_type->type_natom[etp_A_exch-1];
     n_B_exch = evb_type->type_natom[etp_B_exch-1];
     q_A_exch = new double [n_A_exch];
     q_B_exch = new double [n_B_exch];
     q_A_save = new double [n_A_exch];
     q_B_save = new double [n_B_exch];
-    
+
     int nexch = n_A_exch + n_B_exch;
     if(nexch>max_nexch) max_nexch = nexch;
-    
+
     double *qA = evb_type->atom_q + evb_type->type_index[etp_A_exch-1] ;
     for(int i=0; i<n_A_exch; i++) {
       q_A_exch[i] =  atof(buf+offset[t++]);
@@ -275,7 +275,7 @@ int EVB_OffDiag_DA_Table::data_offdiag(char *buf, int* offset, int start, int en
       qsum_exch += q_A_exch[i]; qsqsum_exch += q_A_exch[i]*q_A_exch[i];
       qsum_save += q_A_save[i]; qsqsum_save += q_A_save[i]*q_A_save[i];
     }
-    
+
     if(universe->me == 0) {
       fprintf(fp,"\n   Number of atoms in first molecule: n_A_exch= %i.\n",n_A_exch);
       for(int i=0; i<n_A_exch; i++) fprintf(fp,"   i= %i  q_A_exch= %f  q_A_save= %f\n",i,q_A_exch[i],q_A_save[i]);
@@ -294,7 +294,7 @@ int EVB_OffDiag_DA_Table::data_offdiag(char *buf, int* offset, int start, int en
       for(int i=0; i<n_B_exch; i++) fprintf(fp,"   i= %i  q_B_exch= %f  q_B_save= %f\n",i,q_B_exch[i],q_B_save[i]);
     }
   }
-  
+
   return t;
 }
 
@@ -313,27 +313,27 @@ void EVB_OffDiag_DA_Table::compute(int vflag)
   // set up lists pointers and env variables
   map = evb_engine->molecule_map;
   natom = atom->nlocal + atom->nghost;
-  
+
   // set up index
   icomplex = evb_complex->id-1;
-  istate = evb_complex->current_status;  
+  istate = evb_complex->current_status;
   mol_A = evb_complex->molecule_A[istate];
   mol_B = evb_complex->molecule_B[istate];
-  
+
   // init energy, virial
   A_Rq = f_R = g_q = 0.0;
   Vij = Vij_const;
   Vij_ex = Vij_ex_short = Vij_ex_long = 0.0;
-  energy = 0.0;  
+  energy = 0.0;
   if(vflag) {
     memset(virial,0, sizeof(double)*6);
     if(evb_kspace) memset(&(evb_kspace->off_diag_virial[0]), 0.0, sizeof(double)*6);
   }
-  
+
   /**************************************************/
   /****** Geometry Energy ***************************/
   /**************************************************/
-  
+
   if(!mp_verlet || mp_verlet->is_master) {
 
     if(comm->me == evb_engine->rc_rank[icomplex]) {
@@ -341,38 +341,38 @@ void EVB_OffDiag_DA_Table::compute(int vflag)
       int m1, m2;
       if(mol_A_Rq[0]==1) m1 = mol_A; else m1 = mol_B;
       if(mol_A_Rq[1]==1) m2 = mol_A; else m2 = mol_B;
-      
+
       index_A_Rq[DATOM] = map[m1][atom_A_Rq[DATOM]];
       index_A_Rq[AATOM] = map[m2][atom_A_Rq[AATOM]];
       x_D = atom->x[index_A_Rq[DATOM]];
       x_A = atom->x[index_A_Rq[AATOM]];
-      
+
       // Calc dr_DA
       VECTOR_SUB(dr_DA,x_D,x_A);
       VECTOR_PBC(dr_DA);
-      
+
       // g(q) part
       if(type_A_Rq==1) cal_g_term_sym();
       else if(type_A_Rq==2) cal_g_term_asym();
-      
+
       // f(R) part
       if(type_A_Rq==1) cal_f_term_sym();
       else if(type_A_Rq==2) cal_f_term_asym();
-      
+
       // A(R,q) = g(q) * f(R)
       A_Rq = g_q * f_R;
-      
-      //if(type_A_Rq==2) 
+
+      //if(type_A_Rq==2)
       //  fprintf(screen,"%lf %lf %lf\n", g_q, f_R, A_Rq);
-      
+
       index[0] = index_A_Rq[DATOM];
       index[1] = index_A_Rq[AATOM];
     }
-    
+
     MPI_Bcast(&A_Rq,1,MPI_DOUBLE,evb_engine->rc_rank[icomplex],world);
-    
+
   }
-  
+
   /**************************************************/
   /****** Potential part ****************************/
   /**************************************************/
@@ -382,66 +382,66 @@ void EVB_OffDiag_DA_Table::compute(int vflag)
   if(is_Vij_ex) {
     if(mp_verlet && mp_verlet->is_master==0)
       if(is_Vij_ex > 1 || evb_engine->flag_ACC) return;
-    
+
     // init exchanged charge
-    init_exch_chg(); 
-    
+    init_exch_chg();
+
     if(evb_kspace) {
       if(is_Vij_ex==2) Vij_ex_short = exch_chg_debye(vflag);
       else if(is_Vij_ex==3) Vij_ex_short = exch_chg_wolf(vflag);
       else if(is_Vij_ex==4) Vij_ex_short = exch_chg_cgis(vflag);
       else if(is_Vij_ex==5) {
-	Vij_ex_short = 0.0;
-	evb_kspace->A_Rq = A_Rq;
+        Vij_ex_short = 0.0;
+        evb_kspace->A_Rq = A_Rq;
         evb_kspace->is_exch_chg = is_exch_chg;
         evb_kspace->compute_exch(vflag);
       } else if(evb_engine->flag_ACC) Vij_ex_short = exch_chg_cut(vflag);
       else {
-	if(!mp_verlet || mp_verlet->is_master==1) Vij_ex_short = exch_chg_long(vflag);
-	
-	if(!mp_verlet) {
-	  evb_kspace->A_Rq = A_Rq;
-	  evb_kspace->is_exch_chg = is_exch_chg;
-	  evb_kspace->compute_exch(vflag);
-	}
-	else if(mp_verlet->is_master==0) {
-	  evb_kspace->A_Rq = 1.0 ;
-	  evb_kspace->is_exch_chg = is_exch_chg;
-	  evb_kspace->compute_exch(vflag);
-	}
+        if(!mp_verlet || mp_verlet->is_master==1) Vij_ex_short = exch_chg_long(vflag);
+
+        if(!mp_verlet) {
+          evb_kspace->A_Rq = A_Rq;
+          evb_kspace->is_exch_chg = is_exch_chg;
+          evb_kspace->compute_exch(vflag);
+        }
+        else if(mp_verlet->is_master==0) {
+          evb_kspace->A_Rq = 1.0 ;
+          evb_kspace->is_exch_chg = is_exch_chg;
+          evb_kspace->compute_exch(vflag);
+        }
       }
     } else Vij_ex_short = exch_chg_cut(vflag);
-    
+
     if(!mp_verlet || mp_verlet->is_master==1) MPI_Allreduce(&Vij_ex_short,&Vij_ex,1,MPI_DOUBLE,MPI_SUM,world);
-    if(!mp_verlet || mp_verlet->is_master==0) if(evb_kspace) Vij_ex += evb_kspace->off_diag_energy;  
-    
+    if(!mp_verlet || mp_verlet->is_master==0) if(evb_kspace) Vij_ex += evb_kspace->off_diag_energy;
+
     Vij += Vij_ex;
-    
+
     // Resume exchanged charges
     resume_chg();
-  }  
+  }
 
   /**************************************************/
   /**************  Force and Virial *****************/
   /**************************************************/
-  
-  if(!mp_verlet || mp_verlet->is_master==1) 
+
+  if(!mp_verlet || mp_verlet->is_master==1)
     if(comm->me == evb_engine->rc_rank[icomplex]) {
       if (type_A_Rq==1) cal_force_sym(vflag);
       else if (type_A_Rq==2) cal_force_asym(vflag);
     }
-  
+
   /**************************************************/
   /************** Energy ****************************/
   /**************************************************/
-  
+
   // Hij = Vij * A(R,q)
   energy = Vij * A_Rq;
-  
+
   // local virial + kspace virial devided by total number of cpu's
 
-  if(!mp_verlet || mp_verlet->is_master==0) 
-  if (evb_kspace && vflag) 
+  if(!mp_verlet || mp_verlet->is_master==0)
+  if (evb_kspace && vflag)
     for (int i = 0; i < 6; i++)
       virial[i] += (evb_kspace->off_diag_virial[i] / comm->nprocs);
 }
@@ -463,7 +463,7 @@ void EVB_OffDiag_DA_Table::cal_f_term_sym()
   int tlm1 = tablength - 1;
   int itable;
   double rsq,value,fraction;
-  
+
   // Cal R_OO
   VECTOR_R2(rsq,dr_DA);
   tb = &tables[0];
@@ -479,7 +479,7 @@ void EVB_OffDiag_DA_Table::cal_f_term_sym()
       df_R = tb->f[itable] + fraction*tb->df[itable];
     }
   }
-  
+
   df_O = df_R * g_q;
   df_R *= sqrt(rsq);
   df_H = 0.25 * f_R * dg_q;
@@ -490,22 +490,22 @@ void EVB_OffDiag_DA_Table::cal_f_term_sym()
 void EVB_OffDiag_DA_Table::cal_force_sym(int vflag)
 {
   double **f = atom->f;
-  
+
   double tfa = Vij * df_O;
   double dfax, dfay, dfaz;
-  
+
   dfax = tfa * dr_DA[0];
   f[index_A_Rq[DATOM]][0] += dfax;
   f[index_A_Rq[AATOM]][0] -= dfax;
-  
+
   dfay = tfa * dr_DA[1];
   f[index_A_Rq[DATOM]][1] += dfay;
   f[index_A_Rq[AATOM]][1] -= dfay;
-  
+
   dfaz = tfa * dr_DA[2];
   f[index_A_Rq[DATOM]][2] += dfaz;
   f[index_A_Rq[AATOM]][2] -= dfaz;
-  
+
   if(vflag) {
     virial[0] += dfax * dr_DA[0];
     virial[1] += dfay * dr_DA[1];
@@ -548,9 +548,9 @@ void EVB_OffDiag_DA_Table::init_exch_chg()
   }
 
   memset(is_exch_chg,0,sizeof(int)*natom);
-  
+
   n_exch_chg = n_exch_chg_local = 0;
- 
+
   double *q = atom->q;
   int *molecule = atom->molecule;
   int *mol_index = evb_engine->mol_index;
@@ -561,21 +561,21 @@ void EVB_OffDiag_DA_Table::init_exch_chg()
     if(molecule[i]==mol_A) type = 1;
     else if(molecule[i]==mol_B) type = 2;
 
-    if (type) {      
+    if (type) {
       if(n_exch_chg==max_nexch*27) error->one(FLERR,"[EVB] exch_chg overflow!");
-      
+
       is_exch_chg[i]=1;
       exch_list[n_exch_chg] = i;
       iexch[n_exch_chg++] = i;
-      
+
       if(type==1) q[i]=q_A_exch[mol_index[i]-1];
       else if(type==2) q[i]=q_B_exch[mol_index[i]-1];
-      
+
       if(i<nlocal) n_exch_chg_local++;
     }
   }
 
-  // AWGL : helper flag 
+  // AWGL : helper flag
   evb_engine->has_exch_chg = (n_exch_chg > 0) ? 1 : 0;
 
   (*ptr_nexch) = n_exch_chg;
@@ -589,11 +589,11 @@ void EVB_OffDiag_DA_Table::resume_chg()
   int *molecule = atom->molecule;
   int *mol_index = evb_engine->mol_index;
   int nlocal = atom->nlocal;
-  
+
   for(int i=0; i<n_exch_chg; i++) {
     int id = exch_list[i];
     qexch[i]=q[id]*A_Rq;
-        
+
     if(molecule[id]==mol_A) q[id] = q_A_save[mol_index[id]-1];
     else if(molecule[id]==mol_B) q[id] = q_B_save[mol_index[id]-1];
   }
@@ -607,51 +607,51 @@ void EVB_OffDiag_DA_Table::sci_setup(int vflag)
 
   map = evb_engine->molecule_map;
   natom = atom->nlocal + atom->nghost;
-  
+
   // set up index
   icomplex = evb_complex->id-1;
-  istate = evb_complex->current_status;  
+  istate = evb_complex->current_status;
   mol_A = evb_complex->molecule_A[istate];
   mol_B = evb_complex->molecule_B[istate];
-  
+
   // init energy, virial
   A_Rq = f_R = g_q = 0.0;
   Vij_ex = Vij_ex_short = Vij_ex_long = 0.0;
-  energy = 0.0; 
+  energy = 0.0;
   if (vflag) memset(virial,0, sizeof(double)*6);
-  
+
   /**************************************************/
   /****** Geometry Energy ***************************/
   /**************************************************/
-  
+
   if(comm->me == evb_engine->rc_rank[icomplex]) {
     // Init three-body system
 
     int m1, m2;
     if(mol_A_Rq[0]==1) m1 = mol_A; else m1 = mol_B;
     if(mol_A_Rq[1]==1) m2 = mol_A; else m2 = mol_B;
-    
+
     index_A_Rq[DATOM] = map[m1][atom_A_Rq[DATOM]];
     index_A_Rq[AATOM] = map[m2][atom_A_Rq[AATOM]];
     x_D = atom->x[index_A_Rq[DATOM]];
     x_A = atom->x[index_A_Rq[AATOM]];
-    
+
     // Cal dr_DA
     VECTOR_SUB(dr_DA,x_D,x_A);
     VECTOR_PBC(dr_DA);
-    
+
     // g(q) part
     if(type_A_Rq==1) cal_g_term_sym();
     else if(type_A_Rq==2) cal_g_term_asym();
-    
+
     // f(R) part
     if(type_A_Rq==1) cal_f_term_sym();
     else if(type_A_Rq==2) cal_f_term_asym();
-    
+
     // A(R,q) = g(q) * f(R)
     A_Rq = g_q * f_R;
   }
-  
+
   MPI_Bcast(&A_Rq,1,MPI_DOUBLE,evb_engine->rc_rank[icomplex],world);
 
   /**************************************************/
@@ -661,26 +661,26 @@ void EVB_OffDiag_DA_Table::sci_setup(int vflag)
   Vij = Vij_const;
 
   if(is_Vij_ex) {
-    init_exch_chg(); 
-    
+    init_exch_chg();
+
     if(evb_kspace) {
       if(is_Vij_ex==2) Vij_ex_short = exch_chg_debye(vflag);
       else if(is_Vij_ex==3) Vij_ex_short = exch_chg_wolf(vflag);
       else if(is_Vij_ex==4) Vij_ex_short = exch_chg_cgis(vflag);
       else if(is_Vij_ex==5) {
-	Vij_ex_short = 0.0;
-	evb_kspace->A_Rq = A_Rq;
+        Vij_ex_short = 0.0;
+        evb_kspace->A_Rq = A_Rq;
         evb_kspace->is_exch_chg = is_exch_chg;
         evb_kspace->compute_exch(vflag);
       } else {
-	Vij_ex_short = exch_chg_long(vflag);
-	evb_kspace->A_Rq = A_Rq;
-	evb_kspace->is_exch_chg = is_exch_chg;
-	evb_kspace->compute_exch(vflag);
+        Vij_ex_short = exch_chg_long(vflag);
+        evb_kspace->A_Rq = A_Rq;
+        evb_kspace->is_exch_chg = is_exch_chg;
+        evb_kspace->compute_exch(vflag);
       }
     }
     else Vij_ex_short = exch_chg_cut(vflag);
-    
+
     MPI_Allreduce(&Vij_ex_short,&Vij_ex,1,MPI_DOUBLE,MPI_SUM,world);
     if (evb_kspace) Vij_ex += evb_kspace->off_diag_energy;
 
@@ -690,10 +690,10 @@ void EVB_OffDiag_DA_Table::sci_setup(int vflag)
   }
 
   // energy
-  energy = A_Rq * Vij;  
+  energy = A_Rq * Vij;
 }
 
-/* ---------------------------------------------------------------------- 
+/* ----------------------------------------------------------------------
    Same as sci_setup(), but without energy/force calculation.
    ---------------------------------------------------------------------- */
 
@@ -703,51 +703,51 @@ void EVB_OffDiag_DA_Table::sci_setup_mp()
 
   map = evb_engine->molecule_map;
   natom = atom->nlocal + atom->nghost;
-  
+
   // set up index
   icomplex = evb_complex->id-1;
-  istate = evb_complex->current_status;  
+  istate = evb_complex->current_status;
   mol_A = evb_complex->molecule_A[istate];
   mol_B = evb_complex->molecule_B[istate];
-  
+
   // init energy, virial
   A_Rq = f_R = g_q = 0.0;
-  
+
   // Calculate geometric factor
-  
+
   if(comm->me == evb_engine->rc_rank[icomplex]) {
     // Init three-body system
 
     int m1, m2;
     if(mol_A_Rq[0]==1) m1 = mol_A; else m1 = mol_B;
     if(mol_A_Rq[1]==1) m2 = mol_A; else m2 = mol_B;
-    
+
     index_A_Rq[DATOM] = map[m1][atom_A_Rq[DATOM]];
     index_A_Rq[AATOM] = map[m2][atom_A_Rq[AATOM]];
 
     x_D = atom->x[index_A_Rq[DATOM]];
     x_A = atom->x[index_A_Rq[AATOM]];
-    
+
     // Cal dr_DA
     VECTOR_SUB(dr_DA,x_D,x_A);
     VECTOR_PBC(dr_DA);
-    
+
     // g(q) part
     if(type_A_Rq==1) cal_g_term_sym();
     else if(type_A_Rq==2) cal_g_term_asym();
-    
+
     // f(R) part
     if(type_A_Rq==1) cal_f_term_sym();
     else if(type_A_Rq==2) cal_f_term_asym();
-    
+
     // A(R,q) = g(q) * f(R)
     A_Rq = g_q * f_R;
   }
-  
+
   MPI_Bcast(&A_Rq,1,MPI_DOUBLE,evb_engine->rc_rank[icomplex],world);
 
   // Setup exchange charges
-  
+
   if(is_Vij_ex) {
     init_exch_chg();
     resume_chg();
@@ -761,47 +761,47 @@ void EVB_OffDiag_DA_Table::sci_compute(int vflag)
   // set up lists pointers and env variables
   map = evb_engine->molecule_map;
   natom = atom->nlocal + atom->nghost;
-  
+
   // set up index
   icomplex = evb_complex->id-1;
-  istate = evb_complex->current_status;  
+  istate = evb_complex->current_status;
   mol_A = evb_complex->molecule_A[istate];
   mol_B = evb_complex->molecule_B[istate];
   int* parent = evb_complex->parent_id;
-  
-  Vij *= 2.0 * evb_complex->Cs[istate] * evb_complex->Cs[parent[istate]]; 
-  
+
+  Vij *= 2.0 * evb_complex->Cs[istate] * evb_complex->Cs[parent[istate]];
+
   // init energy, virial
   if (vflag) memset(virial,0, sizeof(double)*6);
-  
+
   /**************************************************/
   /****** Geometry Force  ***************************/
   /**************************************************/
-  
+
   if(comm->me == evb_engine->rc_rank[icomplex]) {
     // Init three-body system
-    
+
     int m1, m2;
     if(mol_A_Rq[0]==1) m1 = mol_A; else m1 = mol_B;
     if(mol_A_Rq[1]==1) m2 = mol_A; else m2 = mol_B;
-    
+
     index_A_Rq[DATOM] = map[m1][atom_A_Rq[DATOM]];
     index_A_Rq[AATOM] = map[m2][atom_A_Rq[AATOM]];
     x_D = atom->x[index_A_Rq[DATOM]];
     x_A = atom->x[index_A_Rq[AATOM]];
-    
+
     // Cal dr_DA
     VECTOR_SUB(dr_DA,x_D,x_A);
     VECTOR_PBC(dr_DA);
-    
+
     // g(q) part
     if(type_A_Rq==1) cal_g_term_sym();
     else if(type_A_Rq==2) cal_g_term_asym();
-    
+
     // f(R) part
     if(type_A_Rq==1) cal_f_term_sym();
     else if(type_A_Rq==2) cal_f_term_asym();
-    
+
     // force
     if (type_A_Rq==1) cal_force_sym(vflag);
     else if (type_A_Rq==2) cal_force_asym(vflag);
@@ -813,30 +813,30 @@ void EVB_OffDiag_DA_Table::mp_post_compute(int vflag)
 {
   // init energy, virial
   if (vflag) memset(virial,0, sizeof(double)*6);
-  
+
   /**************************************************/
   /****** Geometry Force  ***************************/
   /**************************************************/
-  
+
   if(comm->me == evb_engine->rc_rank[icomplex]) {
     index_A_Rq[DATOM] = index[0];
     index_A_Rq[AATOM] = index[1];
-    
+
     x_D = atom->x[index_A_Rq[DATOM]];
     x_A = atom->x[index_A_Rq[AATOM]];
-    
+
     // Cal dr_DA
     VECTOR_SUB(dr_DA,x_D,x_A);
     VECTOR_PBC(dr_DA);
-    
+
     // g(q) part
     if(type_A_Rq==1) cal_g_term_sym();
     else if(type_A_Rq==2) cal_g_term_asym();
-    
+
     // f(R) part
     if(type_A_Rq==1) cal_f_term_sym();
     else if(type_A_Rq==2) cal_f_term_asym();
-    
+
     // force
     if (type_A_Rq==1) cal_force_sym(vflag);
     else if (type_A_Rq==2) cal_force_asym(vflag);
@@ -893,7 +893,7 @@ void EVB_OffDiag_DA_Table::read_table(Table *tb, char *file, char *keyword)
     sprintf(str,"Cannot open file %s",file);
     error->one(FLERR,str);
   }
-  
+
   if(comm->me==0 && screen) fprintf(screen,"[EVB] Looking for keyword: %s",keyword);
 
   while (1) {
@@ -932,8 +932,8 @@ void EVB_OffDiag_DA_Table::read_table(Table *tb, char *file, char *keyword)
     if (tb->rflag == R)
       rtmp = tb->rlo + (tb->rhi - tb->rlo)*i/(tb->ninput-1);
     else if (tb->rflag == RSQ) {
-      rtmp = tb->rlo*tb->rlo + 
-	(tb->rhi*tb->rhi - tb->rlo*tb->rlo)*i/(tb->ninput-1);
+      rtmp = tb->rlo*tb->rlo +
+        (tb->rhi*tb->rhi - tb->rlo*tb->rlo)*i/(tb->ninput-1);
       rtmp = sqrt(rtmp);
     }
 
@@ -990,14 +990,14 @@ void EVB_OffDiag_DA_Table::param_extract(Table *tb, char *line)
   tb->ninput = 0;
   tb->rflag = 0;
   tb->fpflag = 0;
-  
+
   char *word = strtok(line," \t\n\r\f");
   while (word) {
     if (strcmp(word,"N") == 0) {
       word = strtok(NULL," \t\n\r\f");
       tb->ninput = atoi(word);
     } else if (strcmp(word,"R") == 0 || strcmp(word,"RSQ") == 0 ||
-	       strcmp(word,"BITMAP") == 0) {
+               strcmp(word,"BITMAP") == 0) {
       if (strcmp(word,"R") == 0) tb->rflag = R;
       else if (strcmp(word,"RSQ") == 0) tb->rflag = RSQ;
       else if (strcmp(word,"BITMAP") == 0) tb->rflag = BMP;
@@ -1064,30 +1064,30 @@ void EVB_OffDiag_DA_Table::compute_table(Table *tb)
       r = sqrt(rsq);
       tb->rsq[i] = rsq;
       if (tb->match) {
-	tb->e[i] = tb->efile[i];
-	if(r < tol_zero) test_zero = true;
-	else tb->f[i] = tb->ffile[i]/r;
+        tb->e[i] = tb->efile[i];
+        if(r < tol_zero) test_zero = true;
+        else tb->f[i] = tb->ffile[i]/r;
       } else {
-	tb->e[i] = splint(tb->rfile,tb->efile,tb->e2file,tb->ninput,r);
-	if(r < tol_zero) test_zero = true;
-	else tb->f[i] = splint(tb->rfile,tb->ffile,tb->f2file,tb->ninput,r)/r;
+        tb->e[i] = splint(tb->rfile,tb->efile,tb->e2file,tb->ninput,r);
+        if(r < tol_zero) test_zero = true;
+        else tb->f[i] = splint(tb->rfile,tb->ffile,tb->f2file,tb->ninput,r)/r;
       }
     }
-    
+
     for (int i = 0; i < tlm1; i++) {
       tb->de[i] = tb->e[i+1] - tb->e[i];
       tb->df[i] = tb->f[i+1] - tb->f[i];
     }
   }
 
-} 
+}
 
 /* ----------------------------------------------------------------------
    spline and splint routines modified from Numerical Recipes
 ------------------------------------------------------------------------- */
 
 void EVB_OffDiag_DA_Table::spline(double *x, double *y, int n,
-		       double yp1, double ypn, double *y2)
+                       double yp1, double ypn, double *y2)
 {
   int i,k;
   double p,qn,sig,un;
@@ -1133,7 +1133,7 @@ double EVB_OffDiag_DA_Table::splint(double *xa, double *ya, double *y2a, int n, 
   h = xa[khi]-xa[klo];
   a = (xa[khi]-x) / h;
   b = (x-xa[klo]) / h;
-  y = a*ya[klo] + b*ya[khi] + 
+  y = a*ya[klo] + b*ya[khi] +
     ((a*a*a-a)*y2a[klo] + (b*b*b-b)*y2a[khi]) * (h*h)/6.0;
   return y;
 }
@@ -1154,7 +1154,7 @@ void EVB_OffDiag_DA_Table::spline_table(Table *tb)
 
   if (tb->fpflag == 0) {
     tb->fplo = (tb->ffile[1] - tb->ffile[0]) / (tb->rfile[1] - tb->rfile[0]);
-    tb->fphi = (tb->ffile[tb->ninput-1] - tb->ffile[tb->ninput-2]) / 
+    tb->fphi = (tb->ffile[tb->ninput-1] - tb->ffile[tb->ninput-2]) /
       (tb->rfile[tb->ninput-1] - tb->rfile[tb->ninput-2]);
   }
 

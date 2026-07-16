@@ -41,13 +41,13 @@ EVB_Reaction::~EVB_Reaction()
   {
     for(int j=0; j<nPath[i]; j++)
       if(Path[i][j].moving_part) delete [] Path[i][j].moving_part;
-    
+
     if(Path[i]) delete [] Path[i];
     memory->sfree(name[i]);
   }
   delete [] Path;
   memory->sfree(name);
-  
+
   memory->sfree(backward);
   memory->sfree(reactant_A);
   memory->sfree(reactant_B);
@@ -62,18 +62,18 @@ int EVB_Reaction::data_reaction(char* buf, int* offset, int start, int end)
 {
     char name_line[1000];
     char errline[255];
-    
+
     FILE * fp = evb_engine->fp_cfg_out;
     if(universe->me == 0) fprintf(fp,"\n\nStarting to process reaction templates.\n");
 
     if(start==end) error->all(FLERR,"[EVB] Unexpected end of file.");
-    
+
     if(strstr(buf+offset[start],"segment.reaction")==0)
     {
         sprintf(errline,"[EVB] Cannot find key word [segment.reaction] at: \"%s\"",buf+offset[start]);
         error->all(FLERR,errline);
     }
-    
+
     int t,count1=0, count2=0;
     for(t=start+1; t<end; t++)
     {
@@ -82,7 +82,7 @@ int EVB_Reaction::data_reaction(char* buf, int* offset, int start, int end)
             if(count1>count2) error->all(FLERR,"[EVB] Expecting key word [reaction.end].");
             count1++;
         }
-        
+
         else if(strstr(buf+offset[t],"reaction.end"))
         {
             count2++;
@@ -101,10 +101,10 @@ int EVB_Reaction::data_reaction(char* buf, int* offset, int start, int end)
     product_A = (int*) memory->srealloc(product_A, nPair*sizeof(int), "EVB_Reaction:product_A");
     product_B = (int*) memory->srealloc(product_B, nPair*sizeof(int), "EVB_Reaction:product_B");
     nPath = (int*) memory->srealloc(nPath, nPair*sizeof(int), "EVB_Reaction:forward");
-    Path = new EVB_Path*[nPair];  
+    Path = new EVB_Path*[nPair];
 
     t = start+1;
-    
+
     for(int i=0; i<nPair; i++)
     {
         sprintf(errline,"[EVB] Wrong format exists after %s.",buf+offset[t]);
@@ -127,20 +127,20 @@ int EVB_Reaction::data_reaction(char* buf, int* offset, int start, int end)
         }
         *ppp = 0;
         name[i] = (char*) memory->smalloc(sizeof(char)*(strlen(name_line)+1),"EVB_Reaction:name[i]");
-        strcpy(name[i],name_line);    
+        strcpy(name[i],name_line);
         t++;
-        
-	if(universe->me == 0) fprintf(fp,"\n%i: name= %s\n",i,name[i]);
+
+        if(universe->me == 0) fprintf(fp,"\n%i: name= %s\n",i,name[i]);
 
         backward[i] = atoi(buf+offset[t++]);
-        
+
         reactant_A[i] = evb_type->get_type(buf+offset[t++]);
         if(reactant_A[i]==-1)
         {
             sprintf(errline,"[EVB] Undefined molecule_type [%s].", buf+offset[t-1]);
             error->all(FLERR,errline);
         }
-        
+
         product_A[i] = evb_type->get_type(buf+offset[t++]);
         if(product_A[i]==-1)
         {
@@ -161,17 +161,17 @@ int EVB_Reaction::data_reaction(char* buf, int* offset, int start, int end)
             sprintf(errline,"[EVB] Undefined molecule_type [%s].", buf+offset[t-1]);
             error->all(FLERR,errline);
         }
-        
+
         nPath[i]   = atoi(buf+offset[t++]);
 
-	if(universe->me == 0) {
-	  fprintf(fp,"   Direction of particle migration: %i",backward[i]);
-	  if(backward[i]) fprintf(fp," (particles in %s transferring to %s).\n",evb_type->name[reactant_B[i]-1],evb_type->name[reactant_A[i]-1]);
-	  else fprintf(fp," (particles in %s transferring to %s).\n",evb_type->name[reactant_A[i]-1],evb_type->name[reactant_B[i]-1]);
-	  fprintf(fp,"   Molecule A transformation %s <--> %s.\n",evb_type->name[reactant_A[i]-1],evb_type->name[product_A[i]-1]);
-	  fprintf(fp,"   Molecule B transformation %s <--> %s.\n",evb_type->name[reactant_B[i]-1],evb_type->name[product_B[i]-1]);
-	  fprintf(fp,"   Number of ways reaction can be attempted: nPath= %i.\n",nPath[i]);
-	}
+        if(universe->me == 0) {
+          fprintf(fp,"   Direction of particle migration: %i",backward[i]);
+          if(backward[i]) fprintf(fp," (particles in %s transferring to %s).\n",evb_type->name[reactant_B[i]-1],evb_type->name[reactant_A[i]-1]);
+          else fprintf(fp," (particles in %s transferring to %s).\n",evb_type->name[reactant_A[i]-1],evb_type->name[reactant_B[i]-1]);
+          fprintf(fp,"   Molecule A transformation %s <--> %s.\n",evb_type->name[reactant_A[i]-1],evb_type->name[product_A[i]-1]);
+          fprintf(fp,"   Molecule B transformation %s <--> %s.\n",evb_type->name[reactant_B[i]-1],evb_type->name[product_B[i]-1]);
+          fprintf(fp,"   Number of ways reaction can be attempted: nPath= %i.\n",nPath[i]);
+        }
 
         Path[i] = new EVB_Path[nPath[i]];
         for(int j=0; j<nPath[i]; j++)
@@ -180,38 +180,38 @@ int EVB_Reaction::data_reaction(char* buf, int* offset, int start, int end)
             path->atom_count[0] = atoi(buf+offset[t++]);
             path->atom_count[1] = atoi(buf+offset[t++]);
             path->atom_count[2] = atoi(buf+offset[t++]);
-            
+
             int total_atom = path->atom_count[0] + path->atom_count[1] + path->atom_count[2];
             //fprintf(screen,"total %d\n",total_atom);
             path->moving_part = new int [total_atom*2];
             path->first_part  = path->moving_part + path->atom_count[0]*2;
             path->second_part = path->first_part + path->atom_count[1]*2;
-            
+
             for(int k=0; k<total_atom; k++)
             {
                 path->moving_part[k*2] = atoi(buf+offset[t++]);
                 path->moving_part[k*2+1] = atoi(buf+offset[t++]);
             }
 
-	    if(universe->me == 0) {
-	      fprintf(fp,"\n   Path %i:\n",j);
-	      fprintf(fp,"   +++++++++++++++++++++++++++++++\n");
+            if(universe->me == 0) {
+              fprintf(fp,"\n   Path %i:\n",j);
+              fprintf(fp,"   +++++++++++++++++++++++++++++++\n");
 
-	      fprintf(fp,"   # of particles transferred= %i.\n",path->atom_count[0]);
-	      for(int k=0; k<path->atom_count[0]; k++) fprintf(fp,"      %i --> %i\n",path->moving_part[k*2],path->moving_part[k*2+1]);
+              fprintf(fp,"   # of particles transferred= %i.\n",path->atom_count[0]);
+              for(int k=0; k<path->atom_count[0]; k++) fprintf(fp,"      %i --> %i\n",path->moving_part[k*2],path->moving_part[k*2+1]);
 
-	      fprintf(fp,"   # of particles remaining in molecule A= %i.\n",path->atom_count[1]);
-	      for(int k=0; k<path->atom_count[1]; k++) fprintf(fp,"      %i --> %i\n",path->first_part[k*2],path->first_part[k*2+1]);
+              fprintf(fp,"   # of particles remaining in molecule A= %i.\n",path->atom_count[1]);
+              for(int k=0; k<path->atom_count[1]; k++) fprintf(fp,"      %i --> %i\n",path->first_part[k*2],path->first_part[k*2+1]);
 
-	      fprintf(fp,"   # of particles remaining in molecule B= %i.\n",path->atom_count[2]);
-	      for(int k=0; k<path->atom_count[2]; k++) fprintf(fp,"      %i --> %i\n",path->second_part[k*2],path->second_part[k*2+1]);
-	    }
+              fprintf(fp,"   # of particles remaining in molecule B= %i.\n",path->atom_count[2]);
+              for(int k=0; k<path->atom_count[2]; k++) fprintf(fp,"      %i --> %i\n",path->second_part[k*2],path->second_part[k*2+1]);
+            }
         }
 
         if(t!=_end) error->all(FLERR,errline);
         t++;
-	
-	if(universe->me == 0) fprintf(fp,"\n   Processing reaction template complete.\n");
+
+        if(universe->me == 0) fprintf(fp,"\n   Processing reaction template complete.\n");
     }
 
     if(strstr(buf+offset[t],"segment.end")==0) error->all(FLERR,"[EVB] Expecting [segment.end] for [segment.reaction]");
@@ -221,7 +221,7 @@ int EVB_Reaction::data_reaction(char* buf, int* offset, int start, int end)
       fprintf(fp,"\nProcessing ALL reaction templates complete.\n");
       fprintf(fp,"\n==================================\n");
     }
-    
+
     return t;
 }
 
@@ -241,7 +241,7 @@ void EVB_Reaction::change_atom(int id, int itype, int index)
   int n = evb_type->type_index[itype-1]+index-1;
   mol_type[id] = itype;
   mol_index[id] = index;
-  
+
   q[id] = evb_type->atom_q[n];
   type[id] = evb_type->atom_type[n];
   molecule[id] = atom->molecule[id];

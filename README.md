@@ -16,7 +16,24 @@ RAPTOR® is a free software product for all non-profit purposes. It is released 
 
 Please read the Licensing Agreement, download the [PDF version](https://software.rcc.uchicago.edu/raptor/files/RAPTORLicenseAgreement.pdf) of it. If you agree to this license agreement, then please send it back to Prof. Voth by email gavoth@uchicago.edu. 
 
-The newest release of RAPTOR® (2022.3) is compatible with LAMMPS in version [23Jun2022](https://software.rcc.uchicago.edu/raptor/download/lammps-23Jun2022.tar.gz).
+The newest stable release of RAPTOR® (2022.3) on the `main` branch is compatible with LAMMPS version [23Jun2022](https://software.rcc.uchicago.edu/raptor/download/lammps-23Jun2022.tar.gz).
+
+## `develop-2025` compatibility
+
+The `develop-2025` branch is pinned to the LAMMPS development version **30 Mar 2026** at commit [`697545ba8b25df7b83482e936738c87f93d15255`](https://github.com/lammps/lammps/commit/697545ba8b25df7b83482e936738c87f93d15255). The RAPTOR sources were imported from the external `raptor-sync-develop-2025` branch at commit `0a4edfdffec361171c916b95ede40b89634dfbe4`.
+
+This branch deliberately contains only the installable RAPTOR package in `EXTRA-RAPTOR` and its examples in `tests`; it does not vendor the LAMMPS source tree. The package mirrors internal LAMMPS class layouts in `EVB_cracker.h`, so other LAMMPS revisions must be reviewed and tested before use.
+
+For a traditional LAMMPS make build, copy `EXTRA-RAPTOR` into the pinned LAMMPS source tree as `src/RAPTOR`, then enable the required packages and RAPTOR:
+
+```bash
+cp -R EXTRA-RAPTOR /path/to/lammps/src/RAPTOR
+cd /path/to/lammps/src
+make yes-MOLECULE yes-KSPACE yes-RAPTOR
+make mpi
+```
+
+The optional CMake and GPU integration changes from the external LAMMPS fork modify core LAMMPS files and are intentionally not included in this minimal package branch.
 
 ## Please Cite
 

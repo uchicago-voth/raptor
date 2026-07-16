@@ -37,7 +37,7 @@ using namespace LAMMPS_NS;
 EVB_Rep_Hydronium_Expon::EVB_Rep_Hydronium_Expon(LAMMPS *lmp, EVB_Engine *engine) : EVB_Repulsive(lmp,engine)
 {
   int n = atom->ntypes;
-  
+
   setflag_type = new int [n+1];
 
   memory->create(setflag_pair, n+1, n+1, "EVB_rep:setflag_pair");
@@ -76,7 +76,7 @@ EVB_Rep_Hydronium_Expon::~EVB_Rep_Hydronium_Expon()
 int EVB_Rep_Hydronium_Expon::data_rep(char *buf, int *offset, int start, int end)
 {
   int t=start;
-  
+
   FILE * fp = evb_engine->fp_cfg_out;
 
   etp_center = evb_type->get_type(buf+offset[t++]);
@@ -85,10 +85,10 @@ int EVB_Rep_Hydronium_Expon::data_rep(char *buf, int *offset, int start, int end
     sprintf(errline,"[EVB] Undefined molecule_type [%s].", buf+offset[t-1]);
     error->all(FLERR,errline);
   }
-  
+
   if(universe->me == 0) {
     fprintf(fp,"   This interaction computed for all states with molecule present: etp_center= %s.\n",
-	    evb_engine->evb_type->name[etp_center-1]);
+            evb_engine->evb_type->name[etp_center-1]);
   }
 
   // Parameters for original MS-EVB3 definition
@@ -101,7 +101,7 @@ int EVB_Rep_Hydronium_Expon::data_rep(char *buf, int *offset, int start, int end
   C = atof(buf+offset[t++]);
   c1 = atof(buf+offset[t++]);
   d_OH = atof(buf+offset[t++]);
-  
+
   if(universe->me == 0) {
     fprintf(fp,"   Target atom type of hydronium interaction: %i.\n\n",atp_OW);
     fprintf(fp,"   VJJ = VOO(ROO,q) + VHO(RHO) + V_expon\n\n");
@@ -115,7 +115,7 @@ int EVB_Rep_Hydronium_Expon::data_rep(char *buf, int *offset, int start, int end
   cutoff_OO[1] = atof(buf+offset[t++]);
   cutoff_HO[0] = atof(buf+offset[t++]);
   cutoff_HO[1] = atof(buf+offset[t++]);
-  
+
   if(universe->me == 0) {
     fprintf(fp,"\n   Parameters for OO switching function: rs= %f  rc= %f.\n",cutoff_OO[0],cutoff_OO[1]);
     fprintf(fp,"   Parameters for HO switching function: rs= %f  rc= %f.\n",cutoff_HO[0],cutoff_HO[1]);
@@ -124,21 +124,21 @@ int EVB_Rep_Hydronium_Expon::data_rep(char *buf, int *offset, int start, int end
   Bb1 = B*b1;
   Bb2 = B*b2;
   Cc1 = C*c1;
-  
+
   oo_cutoff_1 = pow(cutoff_OO[1]-cutoff_OO[0],-3);
   oo_cutoff_2 = 3*cutoff_OO[1]-cutoff_OO[0];
   oo_cutoff_3 = cutoff_OO[0]+cutoff_OO[1];
   oo_cutoff_4 = cutoff_OO[0]*cutoff_OO[1];
-  
+
   ho_cutoff_1 = pow(cutoff_HO[1]-cutoff_HO[0],-3);
   ho_cutoff_2 = 3*cutoff_HO[1]-cutoff_HO[0];
   ho_cutoff_3 = cutoff_HO[0]+cutoff_HO[1];
   ho_cutoff_4 = cutoff_HO[0]*cutoff_HO[1];
-  
+
   if(fabs(b2)<1e-6) bEVB3 = 0; else bEVB3 = 1;
 
   // Parameters for supplemental pairwise interactions
-  
+
   int itype, jtype;
   double a_coef, b_coef, r_coef, cut;
 
@@ -157,7 +157,7 @@ int EVB_Rep_Hydronium_Expon::data_rep(char *buf, int *offset, int start, int end
     b_coef = atof(buf+offset[t++]);
     r_coef = atof(buf+offset[t++]);
     cut    = atof(buf+offset[t++]);
-    
+
     if(universe->me == 0) {
       fprintf(fp,"\n   Pair: %i\n",i);
       fprintf(fp,"   +++++++++++++++++++++++++++++++\n");
@@ -179,7 +179,7 @@ int EVB_Rep_Hydronium_Expon::data_rep(char *buf, int *offset, int start, int end
     _b[itype][jtype] = b_coef;
     _r0[itype][jtype] = r_coef;
   }
-  
+
   return t;
 }
 
@@ -193,11 +193,11 @@ void EVB_Rep_Hydronium_Expon::compute(int vflag)
   double *v = virial;                     // virial
   memset(v,0,sizeof(double)*6);
 
-  energy = e_oo = e_ho = 0.0; 
+  energy = e_oo = e_ho = 0.0;
   int **map = evb_engine->molecule_map;
 
-  int atom_o = map[center_mol_id][1];  
-  int atom_h[3];  
+  int atom_o = map[center_mol_id][1];
+  int atom_h[3];
   atom_h[0] = map[center_mol_id][2];
   atom_h[1] = map[center_mol_id][3];
   atom_h[2] = map[center_mol_id][4];
@@ -212,10 +212,10 @@ void EVB_Rep_Hydronium_Expon::compute(int vflag)
   // Original MS-EVB3 definition
 
   for(int i=0; i<nall; i++) {
-    
+
     if (type[i] == atp_OW || type[i]==atp_OH) {
       if(i==atom_o || atom->tag[i]==atom->tag[atom_o] || i!=atom->map(atom->tag[i])) continue;
-      
+
       int oh = atom_o, ow = i;
       double dxook,dyook,dzook,dxhok[3],dyhok[3],dzhok[3],ene;
       double dohhx[3],dohhy[3],dohhz[3];
@@ -224,64 +224,64 @@ void EVB_Rep_Hydronium_Expon::compute(int vflag)
       double r_ho2[3];
       double exp1,exp2[3],exp2_sum;
       double fo[3],fh[3],fok[3],fhj[3][3];
-	
+
       // calculate distance between r_OH and r_OW
 
       dxook = x[oh][0]-x[ow][0];
       dyook = x[oh][1]-x[ow][1];
       dzook = x[oh][2]-x[ow][2];
-      
-      domain->minimum_image(dxook,dyook,dzook);
+
+      domain->minimum_image(FLERR,dxook,dyook,dzook);
       r_oo = sqrt(dxook*dxook+dyook*dyook+dzook*dzook);
- 
-      if (r_oo < cutoff_OO[1]) {	
+
+      if (r_oo < cutoff_OO[1]) {
         exp1 = exp(-b1*(r_oo-d_OO));
-        
+
         if(bEVB3) {
           exp2_sum = 0.0;
-	  
+
           for (int k = 0; k < 3; k++) {
             int h = atom_h[k];
-	    
+
             // Correction JPCB, 112, 7146 (2008)
 
             dohhx[k] = x[oh][0] - x[h][0];
             dohhy[k] = x[oh][1] - x[h][1];
             dohhz[k] = x[oh][2] - x[h][2];
-            domain->minimum_image(dohhx[k],dohhy[k],dohhz[k]);
+            domain->minimum_image(FLERR,dohhx[k],dohhy[k],dohhz[k]);
 
             dowhx[k] = x[ow][0] - x[h][0];
             dowhy[k] = x[ow][1] - x[h][1];
             dowhz[k] = x[ow][2] - x[h][2];
-            domain->minimum_image(dowhx[k],dowhy[k],dowhz[k]);
+            domain->minimum_image(FLERR,dowhx[k],dowhy[k],dowhz[k]);
 
             dxhok[k] = (dohhx[k] + dowhx[k]) / 2.0;
             dyhok[k] = (dohhy[k] + dowhy[k]) / 2.0;
             dzhok[k] = (dohhz[k] + dowhz[k]) / 2.0;
-            domain->minimum_image(dxhok[k],dyhok[k],dzhok[k]);
+            domain->minimum_image(FLERR,dxhok[k],dyhok[k],dzhok[k]);
 
             r_ho2[k] = dxhok[k]*dxhok[k]+dyhok[k]*dyhok[k]+dzhok[k]*dzhok[k];
             exp2[k] = exp(-b2 * r_ho2[k]);
             exp2_sum += exp2[k];
           }
-		  
+
           ene = B * exp1 * exp2_sum;
         }
         else { ene = B * exp1; }
-		
+
         // energy by V_OOk_rep, Eq. 7 in JPCB 112(2008)467
-        
-        if (r_oo < cutoff_OO[0])  
+
+        if (r_oo < cutoff_OO[0])
           e_oo += ene;
         else  {
           sw =  switching(oo_cutoff_1, cutoff_OO[0], cutoff_OO[1], r_oo);
           e_oo += ene * sw;
         }
-	
+
         // force by r_oo, first term of Eq. 7 in JPCB 112(2008)467
 
         tt = b1 * ene / r_oo;
-        if (r_oo >= cutoff_OO[0]) 
+        if (r_oo >= cutoff_OO[0])
           tt = tt*sw + ene * dswitching(oo_cutoff_1, cutoff_OO[0], cutoff_OO[1], r_oo) / r_oo;
         dfx = tt * dxook;
         f[oh][0] += dfx;
@@ -341,8 +341,8 @@ void EVB_Rep_Hydronium_Expon::compute(int vflag)
         dowhy[k] = x[ow][1] - x[h][1];
         dowhz[k] = x[ow][2] - x[h][2];
 
-        domain->minimum_image(dowhx[k],dowhy[k],dowhz[k]);
-        r_ho = sqrt(dowhx[k]*dowhx[k] + dowhy[k]*dowhy[k] + dowhz[k]*dowhz[k]);	
+        domain->minimum_image(FLERR,dowhx[k],dowhy[k],dowhz[k]);
+        r_ho = sqrt(dowhx[k]*dowhx[k] + dowhy[k]*dowhy[k] + dowhz[k]*dowhz[k]);
 
         if (r_ho < cutoff_HO[1]) {
           ene = C * exp(-c1*(r_ho-d_OH));
@@ -415,36 +415,36 @@ void EVB_Rep_Hydronium_Expon::compute(int vflag)
       dely = ytmp - x[j][1];
       delz = ztmp - x[j][2];
 
-      domain->minimum_image(delx,dely,delz);
+      domain->minimum_image(FLERR,delx,dely,delz);
       rsq = delx*delx + dely*dely + delz*delz;
 
       if(rsq < cutsq[itype][jtype]) {
-	r2inv = 1.0 / rsq;
-	r = sqrt(rsq);
-	aexp = _a[itype][jtype] * exp(-_b[itype][jtype] * (r - _r0[itype][jtype]));
-	fpair = _b[itype][jtype] * r * aexp * r2inv;
+        r2inv = 1.0 / rsq;
+        r = sqrt(rsq);
+        aexp = _a[itype][jtype] * exp(-_b[itype][jtype] * (r - _r0[itype][jtype]));
+        fpair = _b[itype][jtype] * r * aexp * r2inv;
 
-	energy += aexp;
-	dfx = delx * fpair;
-	dfy = dely * fpair;
-	dfz = delz * fpair;
+        energy += aexp;
+        dfx = delx * fpair;
+        dfy = dely * fpair;
+        dfz = delz * fpair;
 
-	f[i][0] += dfx;
-	f[i][1] += dfy;
-	f[i][2] += dfz;
-	
-	f[j][0] -= dfx;
-	f[j][1] -= dfy;
-	f[j][2] -= dfz;
+        f[i][0] += dfx;
+        f[i][1] += dfy;
+        f[i][2] += dfz;
 
-	if(vflag) {
-	  v[0] += dfx * delx;
-	  v[1] += dfy * dely;
-	  v[2] += dfz * delz;
-	  v[3] += dfx * dely;
-	  v[4] += dfx * delz;
-	  v[5] += dfy * delz;
-	}
+        f[j][0] -= dfx;
+        f[j][1] -= dfy;
+        f[j][2] -= dfz;
+
+        if(vflag) {
+          v[0] += dfx * delx;
+          v[1] += dfy * dely;
+          v[2] += dfz * delz;
+          v[3] += dfx * dely;
+          v[4] += dfx * delz;
+          v[5] += dfy * delz;
+        }
 
       } // if(rsq<cutsq)
 
@@ -475,12 +475,12 @@ double EVB_Rep_Hydronium_Expon::dswitching(double denominator, double rs, double
 
 void EVB_Rep_Hydronium_Expon::sci_compute(int vflag)
 {
-  int* cplx_atom = evb_engine->complex_atom; 
+  int* cplx_atom = evb_engine->complex_atom;
   int istate = evb_complex->current_status;
   double cs2 = evb_complex->Cs2[istate];
   int **map = evb_engine->molecule_map;
 
-  int atom_o = map[center_mol_id][1];  
+  int atom_o = map[center_mol_id][1];
   int atom_h[3];
   atom_h[0] = map[center_mol_id][2];
   atom_h[1] = map[center_mol_id][3];
@@ -491,13 +491,13 @@ void EVB_Rep_Hydronium_Expon::sci_compute(int vflag)
   int *type = atom->type;
   int *molecule = atom->molecule;
   int nall = atom->nlocal+atom->nghost;
- 
+
   int cplx_id = cplx_atom[atom_o];
   int atp_OH = type[atom_o];
 
   // Original MS-EVB3 definition
 
-  for (int i = 0; i < nall; i++) {      
+  for (int i = 0; i < nall; i++) {
     if((type[i] == atp_OW || type[i] == atp_OH ) && cplx_atom[i]!=cplx_id && i==atom->map(atom->tag[i])) {
       int oh = atom_o, ow = i;
       double dxook,dyook,dzook,dxhok[3],dyhok[3],dzhok[3],ene;
@@ -507,59 +507,59 @@ void EVB_Rep_Hydronium_Expon::sci_compute(int vflag)
       double r_ho2[3];
       double exp1,exp2[3],exp2_sum;
       double fo[3],fh[3],fok[3],fhj[3][3];
-		
+
       // calculate distance between r_OH and r_OW
 
       dxook = x[oh][0]-x[ow][0];
       dyook = x[oh][1]-x[ow][1];
       dzook = x[oh][2]-x[ow][2];
-      domain->minimum_image(dxook,dyook,dzook);
+      domain->minimum_image(FLERR,dxook,dyook,dzook);
       r_oo = sqrt(dxook*dxook+dyook*dyook+dzook*dzook);
 
-      if (r_oo < cutoff_OO[1]) {	
+      if (r_oo < cutoff_OO[1]) {
         exp1 = exp(-b1*(r_oo-d_OO));
-        
+
         if(bEVB3) {
           exp2_sum = 0.0;
-	  
+
           for (int k = 0; k < 3; k++) {
             int h = atom_h[k];
 
             dohhx[k] = x[oh][0] - x[h][0];
             dohhy[k] = x[oh][1] - x[h][1];
             dohhz[k] = x[oh][2] - x[h][2];
-            domain->minimum_image(dohhx[k],dohhy[k],dohhz[k]);
+            domain->minimum_image(FLERR,dohhx[k],dohhy[k],dohhz[k]);
 
             dowhx[k] = x[ow][0] - x[h][0];
             dowhy[k] = x[ow][1] - x[h][1];
             dowhz[k] = x[ow][2] - x[h][2];
-            domain->minimum_image(dowhx[k],dowhy[k],dowhz[k]);
+            domain->minimum_image(FLERR,dowhx[k],dowhy[k],dowhz[k]);
 
             dxhok[k] = (dohhx[k] + dowhx[k]) / 2.0;
             dyhok[k] = (dohhy[k] + dowhy[k]) / 2.0;
             dzhok[k] = (dohhz[k] + dowhz[k]) / 2.0;
-            domain->minimum_image(dxhok[k],dyhok[k],dzhok[k]);
+            domain->minimum_image(FLERR,dxhok[k],dyhok[k],dzhok[k]);
 
             r_ho2[k] = dxhok[k]*dxhok[k]+dyhok[k]*dyhok[k]+dzhok[k]*dzhok[k];
             exp2[k] = exp(-b2 * r_ho2[k]);
             exp2_sum += exp2[k];
           }
-		  
+
           ene = B * exp1 * exp2_sum;
         }
         else { ene = B * exp1; }
-		
+
         // force by r_oo, first term of Eq. 7 in JPCB 112(2008)467
 
-        if (r_oo > cutoff_OO[0])  
+        if (r_oo > cutoff_OO[0])
           sw =  switching(oo_cutoff_1, cutoff_OO[0], cutoff_OO[1], r_oo);
 
         tt = b1 * ene / r_oo;
-        if (r_oo >= cutoff_OO[0]) 
+        if (r_oo >= cutoff_OO[0])
           tt = tt*sw + ene * dswitching(oo_cutoff_1, cutoff_OO[0], cutoff_OO[1], r_oo) / r_oo;
-        
-        tt *= cs2;  
-      
+
+        tt *= cs2;
+
         dfx = tt * dxook;
         f[ow][0] -= dfx;
         dfy = tt * dyook;
@@ -573,7 +573,7 @@ void EVB_Rep_Hydronium_Expon::sci_compute(int vflag)
           int h = atom_h[k];
           tt = b2 *  B * exp1 * exp2[k];
           if (r_oo >= cutoff_OO[0]) tt *= sw;
-          
+
           // force by R_HjOk, second term of Eq. 7 in JPCB 112(2008)467
 
           tt *= cs2;
@@ -595,17 +595,17 @@ void EVB_Rep_Hydronium_Expon::sci_compute(int vflag)
         dowhy[k] = x[ow][1] - x[h][1];
         dowhz[k] = x[ow][2] - x[h][2];
 
-        domain->minimum_image(dowhx[k],dowhy[k],dowhz[k]);
+        domain->minimum_image(FLERR,dowhx[k],dowhy[k],dowhz[k]);
         r_ho = sqrt(dowhx[k]*dowhx[k] + dowhy[k]*dowhy[k] + dowhz[k]*dowhz[k]);
-		
-        if(r_ho <cutoff_HO[1]) {  
+
+        if(r_ho <cutoff_HO[1]) {
           ene = C * exp(-c1*(r_ho-d_OH));
           if(r_ho > cutoff_HO[0]) sw =  switching(ho_cutoff_1, cutoff_HO[0], cutoff_HO[1], r_ho);
-           
+
           tt = c1 * ene / r_ho;
           if (r_ho >= cutoff_HO[0])
             tt = tt * sw + ene * dswitching(ho_cutoff_1, cutoff_HO[0], cutoff_HO[1], r_ho) / r_ho;
-          
+
           tt *= cs2;
 
           dfx = tt * dowhx[k];
@@ -620,22 +620,22 @@ void EVB_Rep_Hydronium_Expon::sci_compute(int vflag)
   }
 
   // Supplemental pairwise interactions
-  
+
   int i, ii, itype, j, jtype;
   double xtmp, ytmp, ztmp, rsq, r2inv, r;
   double delx, dely, delz, aexp, fpair, dfx, dfy, dfz;
 
   int inum = map[center_mol_id][0];
-  
+
   // loop over atoms in target molecule
   for(ii=1; ii<=inum; ii++) {
     i = map[center_mol_id][ii];
 
     itype = type[i];
     if(!setflag_type[itype]) continue; // No pairs defined for this type
-    
+
     int cplx_id = cplx_atom[i];
-    
+
     xtmp = x[i][0];
     ytmp = x[i][1];
     ztmp = x[i][2];
@@ -644,36 +644,36 @@ void EVB_Rep_Hydronium_Expon::sci_compute(int vflag)
     for(j=0; j<nall; j++) {
       if(i != j && cplx_atom[j] != cplx_id && j == atom->map(atom->tag[j])) {
 
-	jtype = type[j];
-	if(!setflag_pair[itype][jtype]) continue; // Pair not defined
-	
-	delx = xtmp - x[j][0];
-	dely = ytmp - x[j][1];
-	delz = ztmp - x[j][2];
-	
-	domain->minimum_image(delx,dely,delz);
-	rsq = delx*delx + dely*dely + delz*delz;
-	
-	if(rsq < cutsq[itype][jtype]) {
-	  r2inv = 1.0 / rsq;
-	  r = sqrt(rsq);
-	  aexp = _a[itype][jtype] * exp(-_b[itype][jtype] * (r - _r0[itype][jtype]));
-	  fpair = _b[itype][jtype] * r * aexp * r2inv;
+        jtype = type[j];
+        if(!setflag_pair[itype][jtype]) continue; // Pair not defined
 
-	  dfx = delx * fpair;
-	  dfy = dely * fpair;
-	  dfz = delz * fpair;
-	  
-	  f[i][0] += dfx;
-	  f[i][1] += dfy;
-	  f[i][2] += dfz;
+        delx = xtmp - x[j][0];
+        dely = ytmp - x[j][1];
+        delz = ztmp - x[j][2];
 
-	} // if(rsq<cutsq)
-    
+        domain->minimum_image(FLERR,delx,dely,delz);
+        rsq = delx*delx + dely*dely + delz*delz;
+
+        if(rsq < cutsq[itype][jtype]) {
+          r2inv = 1.0 / rsq;
+          r = sqrt(rsq);
+          aexp = _a[itype][jtype] * exp(-_b[itype][jtype] * (r - _r0[itype][jtype]));
+          fpair = _b[itype][jtype] * r * aexp * r2inv;
+
+          dfx = delx * fpair;
+          dfy = dely * fpair;
+          dfz = delz * fpair;
+
+          f[i][0] += dfx;
+          f[i][1] += dfy;
+          f[i][2] += dfz;
+
+        } // if(rsq<cutsq)
+
       } // if(inter-complex pair)
-      
+
     } // for(jj<jnum)
-      
+
   } // for(ii<inum)
 
 }
@@ -691,18 +691,18 @@ int EVB_Rep_Hydronium_Expon::checkout(int* _index)
   for(int i=1; i<=n; i++) {
     for(int j=i; j<=n; j++) {
       if(setflag_pair[i][j]) {
-	_index[count++] = i;
-	_index[count++] = j;
+        _index[count++] = i;
+        _index[count++] = j;
       }
     }
   }
-  
+
   // Original MS-EVB3 definition
 
-  int* cplx_atom = evb_engine->complex_atom; 
+  int* cplx_atom = evb_engine->complex_atom;
   int **map = evb_engine->molecule_map;
 
-  int atom_o = map[center_mol_id][1];  
+  int atom_o = map[center_mol_id][1];
   int atom_h[3];
   atom_h[0] = map[center_mol_id][2];
   atom_h[1] = map[center_mol_id][3];
@@ -711,48 +711,48 @@ int EVB_Rep_Hydronium_Expon::checkout(int* _index)
   double **x = atom->x;
   int *type = atom->type;
   int nall = atom->nlocal+atom->nghost;
- 
+
   int atp_OH = type[atom_o];
 
   _index[count++] = atom_o;
   _index[count++] = atom_h[0];
   _index[count++] = atom_h[1];
   _index[count++] = atom_h[2];
-  
-  for(int i=0; i<nall; i++) {   
+
+  for(int i=0; i<nall; i++) {
     if (type[i] == atp_OW || type[i]==atp_OH) {
       if(i==atom_o || atom->tag[i]==atom->tag[atom_o] || i!=atom->map(atom->tag[i])) continue;
       int oh = atom_o, ow = i;
       double dxook,dyook,dzook;
       double dowhx,dowhy,dowhz;
       double r_oo, r_ho;
-      
+
       // calculate distance between r_OH and r_OW
-      
+
       dxook = x[oh][0]-x[ow][0];
       dyook = x[oh][1]-x[ow][1];
       dzook = x[oh][2]-x[ow][2];
-      domain->minimum_image(dxook,dyook,dzook);
+      domain->minimum_image(FLERR,dxook,dyook,dzook);
       r_oo = sqrt(dxook*dxook+dyook*dyook+dzook*dzook);
-      
+
       if (r_oo < cutoff_OO[1]) _index[count++] = ow;
       else { // If need be, calculate distance between each r_HH and r_OW
-	int test = 0;
-	for(int k=0; k<3; k++) {
-	  int h = atom_h[k];
-	  dowhx = x[h][0] - x[ow][0]; 
-	  dowhy = x[h][1] - x[ow][1];
-	  dowhz = x[h][2] - x[ow][2];
-	  domain->minimum_image(dowhx,dowhy,dowhz);
-	  r_ho = sqrt(dowhx*dowhx + dowhy*dowhy + dowhz*dowhz);
-	  if(r_ho < cutoff_HO[1]) test = 1;
-	}
-	if(test) _index[count++] = ow;
+        int test = 0;
+        for(int k=0; k<3; k++) {
+          int h = atom_h[k];
+          dowhx = x[h][0] - x[ow][0];
+          dowhy = x[h][1] - x[ow][1];
+          dowhz = x[h][2] - x[ow][2];
+          domain->minimum_image(FLERR,dowhx,dowhy,dowhz);
+          r_ho = sqrt(dowhx*dowhx + dowhy*dowhy + dowhz*dowhz);
+          if(r_ho < cutoff_HO[1]) test = 1;
+        }
+        if(test) _index[count++] = ow;
       }
     }
   }
 
-  if(count>index_max) error->all(FLERR,"Error: EVB_Rep_Expon::checkout  count>30.\n");  
+  if(count>index_max) error->all(FLERR,"Error: EVB_Rep_Expon::checkout  count>30.\n");
 
   for(int i=count; i<index_max; i++) _index[i] = -1;
   return index_max;

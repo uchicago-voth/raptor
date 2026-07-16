@@ -28,7 +28,7 @@ class EVB_Rep_Hydronium_Expon : public EVB_Repulsive
   public:
     EVB_Rep_Hydronium_Expon(class LAMMPS *, class EVB_Engine*);
     virtual ~EVB_Rep_Hydronium_Expon();
- 
+
   public:
     virtual int data_rep(char*, int*, int, int);
 
@@ -82,7 +82,7 @@ class EVB_Rep_Hydronium_Expon : public EVB_Repulsive
     double ** _b;
     double ** _r0;
 };
- 
+
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/

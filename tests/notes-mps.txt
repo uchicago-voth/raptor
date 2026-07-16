@@ -1,0 +1,43 @@
+# build LAMMPS with GPU package with -DCUDA_PROXY to be compatible with CUDA MPS (-DCUDA_PROXY)
+# CUDA MPS server helps for Volta and later GPUs 
+
+# set the pipe and log directories to writable paths by the user
+export CUDA_MPS_PIPE_DIRECTORY=`pwd`
+export CUDA_MPS_LOG_DIRECTORY=`pwd`
+
+# run nvidia-smi to see that the non-display GPU in this case being 1
+# so set the exclusive mode to device id 1 (via nvidia-smi)
+
+# check if others using the GPUs on the node, and what GPUs are allocated to the job 
+#  For example, Bus-Id of the GPU 00000000:B1:00.0
+#  open another terminal, ssh into the node, run nvidia-smi
+#    check which GPU ID correponds to 00000000:B1:00.0, say ID = 1
+sudo /usr/bin/nvidia-smi -i 1 -c EXCLUSIVE_PROCESS
+
+# but then nvc_get_devices shows that its ID is 0
+# so set the visible device to be id 0
+export CUDA_VISIBLE_DEVICES="0"
+
+# at this point nvidia-smi still shows 2 GPUs
+
+module load intelmpi/2021.5+intel-2022.0 mkl/2020.up1 cuda/11.5
+
+# now launch the CUDA MPS server on the visible device only
+nvidia-cuda-mps-control -d
+
+# check the MPS server is up and running
+#ps -ef | grep mps
+
+# run LAMMPS with multiple MPI ranks through the MPS server
+
+mpirun -np 4 /path/to/build-raptor/lmp -in in.txt -sf gpu -pk gpu 1 gpuID 0 neigh no pair/only yes
+
+# optional: open another window, log in to the compute node, and run
+#  watch -n 1 nvidia-smi
+
+# switch the GPU back to the Default mode when done
+sudo /usr/bin/nvidia-smi -i 2 -c DEFAULT
+
+# turn off the mps server when done
+echo quit | nvidia-cuda-mps-control
+

@@ -27,7 +27,7 @@ class EVB_Rep_Hydronium : public EVB_Repulsive
   public:
     EVB_Rep_Hydronium(class LAMMPS *, class EVB_Engine*);
     virtual ~EVB_Rep_Hydronium();
- 
+
   public:
     virtual int data_rep(char*, int*, int, int);
 
@@ -40,7 +40,7 @@ class EVB_Rep_Hydronium : public EVB_Repulsive
 
     virtual void scan_potential_surface();
 
-   
+
   public:
     int atp_OW;
     double B;
@@ -70,7 +70,7 @@ class EVB_Rep_Hydronium : public EVB_Repulsive
     double switching(double,double, double, double);
     double dswitching(double,double, double, double);
 };
- 
+
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/

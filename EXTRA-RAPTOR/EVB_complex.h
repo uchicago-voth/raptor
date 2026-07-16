@@ -18,16 +18,16 @@
      evb_offdiag->iexch = evb_complex->iexch_##a[b];\
      evb_offdiag->qexch = evb_complex->qexch_##a[b]; \
      evb_complex->nexch_##a[b] = 0
-	
+
 #define GET_OFFDIAG_EXCH(cplx) int* nexch_off = cplx->nexch_off; \
      int* nexch_extra = cplx->nexch_extra; \
      int** iexch_off = cplx->iexch_off; \
      int** iexch_extra = cplx->iexch_extra; \
      double** qexch_off = cplx->qexch_off; \
      double** qexch_extra = cplx->qexch_extra; \
-	 int *extra_i = cplx->extra_i; \
-	 int *extra_j = cplx->extra_j;
-			
+         int *extra_i = cplx->extra_i; \
+         int *extra_j = cplx->extra_j;
+
 namespace LAMMPS_NS {
 
 /*------------------------------------------------------------------------*/
@@ -39,7 +39,7 @@ class EVB_Complex : protected Pointers, protected EVB_Pointers
 public:
   EVB_Complex(class LAMMPS*, class EVB_Engine*);
   ~EVB_Complex();
-  
+
   int id;
   int rc_start;
   int nstate;
@@ -51,19 +51,19 @@ public:
   int natom;
   int nextra_coupling;
   int state_per_shell[MAX_SHELL];
-  
+
   int shell[MAX_STATE];
   int parent_id[MAX_STATE];
   int molecule_A[MAX_STATE];
   int molecule_B[MAX_STATE];
   int reaction[MAX_STATE];
-  int path[MAX_STATE];  
+  int path[MAX_STATE];
   int extra_coupling[MAX_STATE];
-  
+
   double distance[MAX_STATE];
-  
+
   double qsqsum;
-  
+
   void delete_state(int);
   void delete_multiplestates(int[], int);
   void exchange_state(int,int);
@@ -82,10 +82,10 @@ public:
   int state_buf[(MAX_STATE*7+2)*sizeof(int)+sizeof(double)*2];
   int buf_size;
   int rc_etype;
-  
+
   void pack_state();
   void unpack_state();
-  
+
   void save_avec(int);
   void load_avec(int);
   void setup_avec();
@@ -103,7 +103,7 @@ public:
   static int set(char*, int*, int, int);
   static int ss_do_refine;  // If refining states, by EVB2 state-search
   static int ss_do_extra;   // If calculating extra couplings
- 
+
   struct STATE_INFO
   {
     int *type, *mol_type, *mol_index;
@@ -120,27 +120,29 @@ public:
     int *num_improper;
     int **improper_type;
     int **improper_atom1,**improper_atom2,**improper_atom3,**improper_atom4;
-	
+
     double qsqsum_cplx;
     int nbonds, nangles, ndihedrals, nimpropers;
   };
-  
+
   STATE_INFO* status;
   int current_status;
-  int status_nstate, status_natom; 
-  
+  int status_nstate, status_natom;
+
   int max_offdiag, max_extra;
   int *extra_i, *extra_j;
   int *nexch_off, *nexch_extra;
   int **iexch_off, **iexch_extra;
   double **qexch_off, **qexch_extra;
-	
+
   class EVB_CEC *cec;
   class EVB_CEC_V2 *cec_v2;
+
+  int complex_map_changed;
   
   _EVB_DEFINE_AVEC_POINTERS;
-  
-#ifdef DLEVB_MODEL_SUPPORT 
+
+#ifdef DLEVB_MODEL_SUPPORT
   void delete_shell_states(int);
 #endif
 
@@ -148,7 +150,7 @@ public:
     return j >> SBBITS & 3;
   }
 };
-  
+
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/

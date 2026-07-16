@@ -22,7 +22,7 @@ class EVB_OffDiag : protected Pointers, protected EVB_Pointers
 {
   public:
     static int max_nexch;
-    
+
   public:
     EVB_OffDiag(class LAMMPS *, class EVB_Engine*);
     virtual ~EVB_OffDiag();
@@ -43,9 +43,9 @@ class EVB_OffDiag : protected Pointers, protected EVB_Pointers
     double *qexch;
 
     double A_Rq;     // A(R,q)
-    double Vij,Vij_const,Vij_ex,Vij_ex_short,Vij_ex_long; 
+    double Vij,Vij_const,Vij_ex,Vij_ex_short,Vij_ex_long;
 
-  public:  
+  public:
     virtual void compute(int) = 0;
     virtual int data_offdiag(char*,int*,int,int) = 0;
     virtual int checkout(int*) { return 0;} ;
@@ -56,7 +56,7 @@ class EVB_OffDiag : protected Pointers, protected EVB_Pointers
     double exch_chg_long(int);
     double exch_chg_wolf(int);
     double exch_chg_cgis(int);
-    
+
     // ** AWGL : OpenMP threaded exch_chg routines ** //
     double exch_chg_long_omp(int);
     template <int VFLAG, int NEWTON_PAIR> double exch_chg_long_omp_eval();
@@ -68,19 +68,19 @@ class EVB_OffDiag : protected Pointers, protected EVB_Pointers
     template <int VFLAG, int NEWTON_PAIR> double exch_chg_wolf_omp_eval();
     double exch_chg_cgis_omp(int);
     template <int VFLAG, int NEWTON_PAIR> double exch_chg_cgis_omp_eval();
-   
+
     virtual void sci_setup(int) = 0;
     virtual void sci_compute(int) = 0;
     virtual void sci_setup_mp() = 0;
-    
+
     virtual void mp_post_compute(int) {};
-   
+
     void finite_difference_test();
-	
+
     double energy;
     double virial[6];
 };
-  
+
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/

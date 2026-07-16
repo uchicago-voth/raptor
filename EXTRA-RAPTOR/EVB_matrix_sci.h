@@ -31,7 +31,7 @@ class EVB_MatrixSCI : public EVB_Matrix
  public:
   EVB_MatrixSCI(class LAMMPS *, class EVB_Engine *);
   virtual ~EVB_MatrixSCI();
-  
+
   class EVB_Complex *cplx;
 
   double E,dE;
@@ -42,13 +42,13 @@ class EVB_MatrixSCI : public EVB_Matrix
   double sci_e_extra[MAX_STATE];
 
   int first_time_setup;
-  
+
  public:
 
   void setup();
   void clear(bool,bool,bool);
 
-  void setup_mp();                  // Master partition calls this and only allocates 
+  void setup_mp();                  // Master partition calls this and only allocates
   void clear_mp(bool,bool,bool);    //  force arrays for owned complexes.
 
   void sci_total_energy();
@@ -63,7 +63,7 @@ class EVB_MatrixSCI : public EVB_Matrix
   void copy_ev_full(bool);
   void copy_force_full();
 };
-  
+
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/

@@ -34,7 +34,7 @@ using namespace LAMMPS_NS;
 EVB_Rep_Expon::EVB_Rep_Expon(LAMMPS *lmp, EVB_Engine *engine) : EVB_Repulsive(lmp,engine)
 {
   int n = atom->ntypes;
-  
+
   setflag_type = new int [n+1];
 
   memory->create(setflag_pair, n+1, n+1, "EVB_rep:setflag_pair");
@@ -73,7 +73,7 @@ EVB_Rep_Expon::~EVB_Rep_Expon()
 int EVB_Rep_Expon::data_rep(char *buf, int *offset, int start, int end)
 {
   int t=start;
-  
+
   FILE * fp = evb_engine->fp_cfg_out;
 
   etp_center = evb_type->get_type(buf+offset[t++]);
@@ -85,7 +85,7 @@ int EVB_Rep_Expon::data_rep(char *buf, int *offset, int start, int end)
 
   if(universe->me == 0) {
     fprintf(fp,"   This interaction computed for all states with molecule present: etp_center= %s.\n",
-	    evb_engine->evb_type->name[etp_center-1]);
+            evb_engine->evb_type->name[etp_center-1]);
   }
 
   int itype, jtype;
@@ -106,7 +106,7 @@ int EVB_Rep_Expon::data_rep(char *buf, int *offset, int start, int end)
     b_coef = atof(buf+offset[t++]);
     r_coef = atof(buf+offset[t++]);
     cut    = atof(buf+offset[t++]);
-    
+
     if(universe->me == 0) {
       fprintf(fp,"\n   Pair: %i\n",i);
       fprintf(fp,"   +++++++++++++++++++++++++++++++\n");
@@ -128,7 +128,7 @@ int EVB_Rep_Expon::data_rep(char *buf, int *offset, int start, int end)
     _b[jtype][itype] = b_coef;
     _r0[jtype][itype] = r_coef;
   }
-  
+
   return t;
 }
 
@@ -145,7 +145,7 @@ void EVB_Rep_Expon::compute(int vflag)
   int i, ii, itype, imol, j, jtype, jmol;
   double xtmp, ytmp, ztmp, rsq, r2inv, r;
   double delx, dely, delz, aexp, fpair, dfx, dfy, dfz;
-  
+
   int * molecule = atom->molecule;
   int ** map = evb_engine->molecule_map;
   int inum = map[center_mol_id][0];
@@ -176,36 +176,36 @@ void EVB_Rep_Expon::compute(int vflag)
       dely = ytmp - x[j][1];
       delz = ztmp - x[j][2];
 
-      domain->minimum_image(delx,dely,delz);
+      domain->minimum_image(FLERR,delx,dely,delz);
       rsq = delx*delx + dely*dely + delz*delz;
 
       if(rsq < cutsq[itype][jtype]) {
-	r2inv = 1.0 / rsq;
-	r = sqrt(rsq);
-	aexp = _a[itype][jtype] * exp(-_b[itype][jtype] * (r - _r0[itype][jtype]));
-	fpair = _b[itype][jtype] * r * aexp * r2inv;
+        r2inv = 1.0 / rsq;
+        r = sqrt(rsq);
+        aexp = _a[itype][jtype] * exp(-_b[itype][jtype] * (r - _r0[itype][jtype]));
+        fpair = _b[itype][jtype] * r * aexp * r2inv;
 
-	energy += aexp;
-	dfx = delx * fpair;
-	dfy = dely * fpair;
-	dfz = delz * fpair;
+        energy += aexp;
+        dfx = delx * fpair;
+        dfy = dely * fpair;
+        dfz = delz * fpair;
 
-	f[i][0] += dfx;
-	f[i][1] += dfy;
-	f[i][2] += dfz;
-	
-	f[j][0] -= dfx;
-	f[j][1] -= dfy;
-	f[j][2] -= dfz;
+        f[i][0] += dfx;
+        f[i][1] += dfy;
+        f[i][2] += dfz;
 
-	if(vflag) {
-	  v[0] += dfx * delx;
-	  v[1] += dfy * dely;
-	  v[2] += dfz * delz;
-	  v[3] += dfx * dely;
-	  v[4] += dfx * delz;
-	  v[5] += dfy * delz;
-	}
+        f[j][0] -= dfx;
+        f[j][1] -= dfy;
+        f[j][2] -= dfz;
+
+        if(vflag) {
+          v[0] += dfx * delx;
+          v[1] += dfy * dely;
+          v[2] += dfz * delz;
+          v[3] += dfx * dely;
+          v[4] += dfx * delz;
+          v[5] += dfy * delz;
+        }
 
       } // if(rsq<cutsq)
 
@@ -219,7 +219,7 @@ void EVB_Rep_Expon::compute(int vflag)
 
 void EVB_Rep_Expon::sci_compute(int vflag)
 {
-  int * cplx_atom = evb_engine->complex_atom; 
+  int * cplx_atom = evb_engine->complex_atom;
   int istate = evb_complex->current_status;
   double cs2 = evb_complex->Cs2[istate];
 
@@ -241,9 +241,9 @@ void EVB_Rep_Expon::sci_compute(int vflag)
 
     itype = type[i];
     if(!setflag_type[itype]) continue; // No pairs defined for this type
-    
+
     int cplx_id = cplx_atom[i];
-    
+
     xtmp = x[i][0];
     ytmp = x[i][1];
     ztmp = x[i][2];
@@ -252,36 +252,36 @@ void EVB_Rep_Expon::sci_compute(int vflag)
     for(j=0; j<nall; j++) {
       if(i != j && cplx_atom[j] != cplx_id && j == atom->map(atom->tag[j])) {
 
-	jtype = type[j];
-	if(!setflag_pair[itype][jtype]) continue; // Pair not defined
-	
-	delx = xtmp - x[j][0];
-	dely = ytmp - x[j][1];
-	delz = ztmp - x[j][2];
-	
-	domain->minimum_image(delx,dely,delz);
-	rsq = delx*delx + dely*dely + delz*delz;
-	
-	if(rsq < cutsq[itype][jtype]) {
-	  r2inv = 1.0 / rsq;
-	  r = sqrt(rsq);
-	  aexp = _a[itype][jtype] * exp(-_b[itype][jtype] * (r - _r0[itype][jtype]));
-	  fpair = _b[itype][jtype] * r * aexp * r2inv;
+        jtype = type[j];
+        if(!setflag_pair[itype][jtype]) continue; // Pair not defined
 
-	  dfx = delx * fpair;
-	  dfy = dely * fpair;
-	  dfz = delz * fpair;
-	  
-	  f[i][0] += dfx;
-	  f[i][1] += dfy;
-	  f[i][2] += dfz;
+        delx = xtmp - x[j][0];
+        dely = ytmp - x[j][1];
+        delz = ztmp - x[j][2];
 
-	} // if(rsq<cutsq)
-    
+        domain->minimum_image(FLERR,delx,dely,delz);
+        rsq = delx*delx + dely*dely + delz*delz;
+
+        if(rsq < cutsq[itype][jtype]) {
+          r2inv = 1.0 / rsq;
+          r = sqrt(rsq);
+          aexp = _a[itype][jtype] * exp(-_b[itype][jtype] * (r - _r0[itype][jtype]));
+          fpair = _b[itype][jtype] * r * aexp * r2inv;
+
+          dfx = delx * fpair;
+          dfy = dely * fpair;
+          dfz = delz * fpair;
+
+          f[i][0] += dfx;
+          f[i][1] += dfy;
+          f[i][2] += dfz;
+
+        } // if(rsq<cutsq)
+
       } // if(inter-complex pair)
-      
+
     } // for(jj<jnum)
-      
+
   } // for(ii<inum)
 
 }
@@ -294,13 +294,13 @@ int EVB_Rep_Expon::checkout(int* _index)
   int count = 0;
 
   _index[count++] = -2 * num_pairs; // EVB_Checkout::write2txt will write _index[j] to checkpoint file.
-  
+
   // Collect defined pairs
   for(int i=1; i<=n; i++) {
     for(int j=i; j<=n; j++) {
       if(setflag_pair[i][j]) {
-	_index[count++] = i;
-	_index[count++] = j;
+        _index[count++] = i;
+        _index[count++] = j;
       }
     }
   }
