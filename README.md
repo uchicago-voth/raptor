@@ -31,6 +31,16 @@ make yes-MOLECULE yes-KSPACE yes-RAPTOR
 make mpi
 ```
 
+For a CPU-only CMake build, apply the small version-pinned integration patch after copying the package:
+
+```bash
+git -C /path/to/lammps apply /path/to/raptor/cmake/lammps-697545ba8b-raptor.patch
+cmake -S /path/to/lammps/cmake -B /path/to/lammps/build-raptor \
+  -D PKG_MOLECULE=on -D PKG_KSPACE=on -D PKG_RAPTOR=on
+cmake --build /path/to/lammps/build-raptor -j 8
+```
+
+See [`cmake/README.md`](cmake/README.md) for complete instructions. GPU integration from the external LAMMPS fork remains intentionally excluded; this branch supports CPU builds only.
 ## Please Cite
 
 - S. Kaiser, Z. Yue, Y. Peng, T. Nguyen, S. Chen, D. Teng, and G. A. Voth, “Molecular Dynamics Simulation of Complex Reactivity with the Rapid Approach for Proton Transport and Other Reactions (RAPTOR) Software Package”, _J. Phys. Chem. B._ **128**, 4959 – 4974 (2024). 

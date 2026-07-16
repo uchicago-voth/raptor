@@ -13,11 +13,11 @@ contributors, and `MANUAL.pdf` in the repository root for the user manual.
 
 > **Minimal package distribution:** In the `uchicago-voth/raptor`
 > `develop-2025` branch, this directory is distributed as `EXTRA-RAPTOR` and
-> should be copied to `src/RAPTOR` in the pinned LAMMPS source tree. Optional
-> CMake and GPU support described below also requires changes to core LAMMPS
-> files from the external integration fork; those files are intentionally not
-> bundled in this repository. The traditional CPU make build is the
-> self-contained installation path provided here.
+> should be copied to `src/RAPTOR` in the pinned LAMMPS source tree. CPU CMake
+> builds use the version-pinned patch in `cmake/` at the repository root.
+> Optional GPU support described below requires additional changes to core
+> LAMMPS files from the external integration fork; those files are
+> intentionally not bundled or supported in this repository.
 
 ## What the package provides
 
@@ -50,7 +50,9 @@ Required LAMMPS packages: MOLECULE and KSPACE (enforced by CMake).
 
 ## Building
 
-CMake is the primary build system. From the LAMMPS top-level directory:
+CMake builds require the version-pinned integration patch from the minimal
+RAPTOR repository. After copying `EXTRA-RAPTOR` to `src/RAPTOR` and applying
+that patch, run the following from the LAMMPS top-level directory:
 
 CPU-only build:
 
@@ -60,7 +62,9 @@ cmake -S cmake -B build-raptor \
 cmake --build build-raptor -j 8
 ```
 
-Build with the GPU package, using the preset provided in
+The following GPU build applies only to the external integration fork and is
+not supported by the minimal package repository. That fork provides the
+preset
 `cmake/presets/raptor_gpu.cmake` (enables KSPACE, MANYBODY, MOLECULE, RIGID,
 RAPTOR, GPU, and the `_RAPTOR_GPU` compile definition):
 
