@@ -14,8 +14,6 @@ The MS-RMD methodology is implemented by the Voth group in RAPTOR® as a plug-in
 
 RAPTOR® is a free software product for all non-profit purposes. It is released in the Source Code version only, and needs to be compiled within the LAMMPS software, which is also free. To obtain more information and installation instructions for LAMMPS, please visit here. Please note that the distrition and use of LAMMPS is currently under the terms of GNU Public License, version 2. Furthermore, the use of RAPTOR® needs to be under a Non-Profit Licensing Agreement with its development team.
 
-Please read the Licensing Agreement, download the [PDF version](https://software.rcc.uchicago.edu/raptor/files/RAPTORLicenseAgreement.pdf) of it. If you agree to this license agreement, then please send it back to Prof. Voth by email gavoth@uchicago.edu. 
-
 The newest release of RAPTOR® (2022.3) is compatible with LAMMPS in version [23Jun2022](https://software.rcc.uchicago.edu/raptor/download/lammps-23Jun2022.tar.gz).
 
 The 'develop-2025' branch contains a port of the RAPTOR code that is compatible with the LAMMPS development version from March 30th, 2026, commit 697545ba8b25df7b83482e936738c87f93d15255.
